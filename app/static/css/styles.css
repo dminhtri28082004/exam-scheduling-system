@@ -1,0 +1,37 @@
+/* Main styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Login page */
+.login-form {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* Dashboard */
+.card {
+    margin-bottom: 1rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Tables */
+.table th {
+    background-color: #f8f9fa;
+}
+
+/* Footer */
+.footer {
+    margin-top: auto;
+}

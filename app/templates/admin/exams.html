@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý lịch thi - Hệ thống lập lịch thi{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-section {
+        margin-bottom: 1rem;
+    }
+    .badge-seat-usage {
+        min-width: 60px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Quản lý lịch thi</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title">{{ total_exams }}</h3>
+                <p class="card-text">Tổng số kỳ thi</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title">{{ upcoming_exams }}</h3>
+                <p class="card-text">Kỳ thi sắp tới</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title">{{ total_student_slots }}</h3>
+                <p class="card-text">Số lượt sinh viên dự thi</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Bộ lọc</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 filter-section">
+                        <label for="subjectFilter" class="form-label">Môn học</label>
+                        <select class="form-select" id="subjectFilter">
+                            <option value="">Tất cả môn học</option>
+                            {% for subject in subjects %}
+                            <option value="{{ subject.code }}">{{ subject.code }} - {{ subject.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 filter-section">
+                        <label for="roomFilter" class="form-label">Phòng thi</label>
+                        <select class="form-select" id="roomFilter">
+                            <option value="">Tất cả phòng</option>
+                            {% for room in rooms %}
+                            <option value="{{ room.room_id }}">{{ room.room_id }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 filter-section">
+                        <label for="dateFilter" class="form-label">Thời gian</label>
+                        <select class="form-select" id="dateFilter">
+                            <option value="">Tất cả</option>
+                            <option value="upcoming">Sắp tới</option>
+                            <option value="past">Đã qua</option>
+                            <option value="today">Hôm nay</option>
+                            <option value="thisWeek">Tuần này</option>
+                            <option value="custom">Tùy chọn...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 filter-section" id="customDateContainer" style="display: none;">
+                        <label for="customDate" class="form-label">Chọn ngày</label>
+                        <input type="date" class="form-control" id="customDate">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Danh sách các ca thi (<span id="filteredCount">{{ total_exams }}</span>)</h5>
+                <div>
+                    <a href="/ui/admin/scheduler" class="btn btn-sm btn-primary">Tạo lịch kì thi mới</a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if exams|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="examsTable">
+                        <thead>
+                            <tr>
+                                <th>Mã môn</th>
+                                <th>Tên môn học</th>
+                                <th>Phòng thi</th>
+                                <th>Thời gian</th>
+                                <th>Sĩ số</th>
+                                <th>Giám thị</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for exam in exams %}
+                            <tr class="exam-row" 
+                                data-id="{{ exam.id }}"
+                                data-subject-code="{{ exam.subject_code }}"
+                                data-room="{{ exam.room_id }}"
+                                data-date="{{ exam.start_time.strftime('%Y-%m-%d') }}"
+                                data-time="{{ exam.start_time.isoformat() }}">
+                                <td>{{ exam.subject_code }}</td>
+                                <td>{{ exam.subject_name }}</td>
+                                <td>{{ exam.room_id }}</td>
+                                <td>
+                                    {{ exam.start_time.strftime('%d/%m/%Y %H:%M') }} - {{ exam.end_time.strftime('%H:%M') }}
+                                    {% if exam.start_time > now %}
+                                    <span class="badge bg-info">Sắp tới</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Đã qua</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if exam.student_count / exam.max_students < 0.5 %}bg-warning{% elif exam.student_count / exam.max_students < 0.8 %}bg-info{% else %}bg-success{% endif %} badge-seat-usage">
+                                        {{ exam.student_count }}/{{ exam.max_students }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% for supervisor in exam.supervisors %}
+                                    <div>{{ supervisor.full_name }}</div>
+                                    {% else %}
+                                    <span class="text-secondary">Chưa phân công</span>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-info view-exam-btn" 
+                                                data-id="{{ exam.id }}">
+                                            Chi tiết
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger delete-exam-btn"
+                                                data-id="{{ exam.id }}">
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    Chưa có ca thi nào được tạo. Hãy sử dụng chức năng "Lập lịch kì thi" để tạo lịch thi mới.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xem chi tiết -->
+<div class="modal fade" id="examDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết kỳ thi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="examDetailLoading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Đang tải thông tin chi tiết...</p>
+                </div>
+                <div id="examDetailContent" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const now = new Date();
+    const examRows = document.querySelectorAll('.exam-row');
+    const subjectFilter = document.getElementById('subjectFilter');
+    const roomFilter = document.getElementById('roomFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const customDateContainer = document.getElementById('customDateContainer');
+    const customDate = document.getElementById('customDate');
+    const filteredCount = document.getElementById('filteredCount');
+    
+    // Xử lý bộ lọc
+    function applyFilters() {
+        const subjectValue = subjectFilter.value;
+        const roomValue = roomFilter.value;
+        const dateValue = dateFilter.value;
+        const dateCustomValue = customDate.value;
+        
+        let count = 0;
+        
+        examRows.forEach(row => {
+            let visible = true;
+            
+            // Lọc theo môn học
+            if (subjectValue && row.dataset.subjectCode !== subjectValue) {
+                visible = false;
+            }
+            
+            // Lọc theo phòng
+            if (roomValue && row.dataset.room !== roomValue) {
+                visible = false;
+            }
+            
+            // Lọc theo thời gian
+            if (dateValue) {
+                const examDate = new Date(row.dataset.time);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - today.getDay());
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 7);
+                
+                if (dateValue === 'upcoming' && examDate < now) {
+                    visible = false;
+                } else if (dateValue === 'past' && examDate >= now) {
+                    visible = false;
+                } else if (dateValue === 'today' && (examDate < today || examDate >= tomorrow)) {
+                    visible = false;
+                } else if (dateValue === 'thisWeek' && (examDate < weekStart || examDate >= weekEnd)) {
+                    visible = false;
+                } else if (dateValue === 'custom' && dateCustomValue) {
+                    const selectedDate = new Date(dateCustomValue);
+                    const nextDay = new Date(selectedDate);
+                    nextDay.setDate(selectedDate.getDate() + 1);
+                    
+                    if (examDate < selectedDate || examDate >= nextDay) {
+                        visible = false;
+                    }
+                }
+            }
+            
+            row.style.display = visible ? '' : 'none';
+            if (visible) count++;
+        });
+        
+        filteredCount.textContent = count;
+    }
+    
+    subjectFilter.addEventListener('change', applyFilters);
+    roomFilter.addEventListener('change', applyFilters);
+    
+    dateFilter.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateContainer.style.display = 'block';
+        } else {
+            customDateContainer.style.display = 'none';
+        }
+        applyFilters();
+    });
+    
+    customDate.addEventListener('change', applyFilters);
+    
+    // Xử lý xem chi tiết
+    const viewExamBtns = document.querySelectorAll('.view-exam-btn');
+    viewExamBtns.forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const examId = this.dataset.id;
+            
+            // Hiển thị loading
+            document.getElementById('examDetailLoading').style.display = 'block';
+            document.getElementById('examDetailContent').style.display = 'none';
+            
+            // Mở modal
+            const modal = new bootstrap.Modal(document.getElementById('examDetailModal'));
+            modal.show();
+            
+            try {
+                const response = await fetch(`/api/v1/exams/${examId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': getAuthToken()
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Không thể lấy thông tin chi tiết kỳ thi');
+                }
+                
+                const exam = await response.json();
+                
+                // Hiển thị thông tin chi tiết
+                const detailContent = document.getElementById('examDetailContent');
+                
+                // Format thời gian
+                const startTime = new Date(exam.start_time);
+                const endTime = new Date(exam.end_time);
+                
+                let supervisorsHtml = '';
+                if (exam.supervisors && exam.supervisors.length > 0) {
+                    supervisorsHtml = '<ul>';
+                    exam.supervisors.forEach(supervisor => {
+                        supervisorsHtml += `<li>${supervisor.name || 'Chưa xác định'}</li>`;
+                    });
+                    supervisorsHtml += '</ul>';
+                } else {
+                    supervisorsHtml = '<span class="text-secondary">Chưa phân công</span>';
+                }
+                
+                let studentsHtml = '';
+                if (exam.students && exam.students.length > 0) {
+                    studentsHtml = `
+                        <div class="mt-4">
+                            <h6>Danh sách sinh viên (${exam.students.length})</h6>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>STT</th>
+                                            <th>Mã sinh viên</th>
+                                            <th>Họ tên</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
+                    
+                    exam.students.forEach((student, index) => {
+                        studentsHtml += `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${student.student_id || 'N/A'}</td>
+                                <td>${student.name || 'N/A'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    studentsHtml += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    studentsHtml = '<div class="alert alert-warning mt-3">Chưa có sinh viên nào được đăng ký vào kỳ thi này.</div>';
+                }
+                
+                detailContent.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Thông tin kỳ thi</h6>
+                            <dl class="row">
+                                <dt class="col-sm-4">Môn học:</dt>
+                                <dd class="col-sm-8">${exam.subject.name} (${exam.subject.code})</dd>
+                                
+                                <dt class="col-sm-4">Phòng thi:</dt>
+                                <dd class="col-sm-8">${exam.room.name || exam.room.room_id}</dd>
+                                
+                                <dt class="col-sm-4">Sức chứa:</dt>
+                                <dd class="col-sm-8">${exam.room.capacity} chỗ</dd>
+                                
+                                <dt class="col-sm-4">Thời gian:</dt>
+                                <dd class="col-sm-8">${startTime.toLocaleDateString('vi-VN')} ${startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</dd>
+                                
+                                <dt class="col-sm-4">Thời lượng:</dt>
+                                <dd class="col-sm-8">${Math.round((endTime - startTime) / 1000 / 60)} phút</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Giảng viên coi thi</h6>
+                            ${supervisorsHtml}
+                        </div>
+                    </div>
+                    ${studentsHtml}
+                `;
+                
+                // Ẩn loading, hiển thị nội dung
+                document.getElementById('examDetailLoading').style.display = 'none';
+                document.getElementById('examDetailContent').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('examDetailContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        Lỗi: ${error.message}
+                    </div>
+                `;
+                
+                document.getElementById('examDetailLoading').style.display = 'none';
+                document.getElementById('examDetailContent').style.display = 'block';
+            }
+        });
+    });
+    
+    // Xử lý xóa kỳ thi
+    const deleteExamBtns = document.querySelectorAll('.delete-exam-btn');
+    deleteExamBtns.forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const examId = this.dataset.id;
+            
+            if (!confirm('Bạn có chắc chắn muốn xóa kỳ thi này? Hành động này không thể hoàn tác.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/exams/${examId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': getAuthToken()
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Không thể xóa kỳ thi');
+                }
+                
+                // Xóa thành công, làm mới trang
+                window.location.reload();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`Lỗi: ${error.message}`);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

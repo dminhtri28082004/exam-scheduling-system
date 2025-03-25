@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý phòng thi - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Quản lý phòng thi</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center mb-3">
+            <div class="card-body">
+                <h3 class="card-title">{{ rooms_count }}</h3>
+                <p class="card-text">Phòng thi</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center mb-3">
+            <div class="card-body">
+                <h3 class="card-title">{{ total_capacity }}</h3>
+                <p class="card-text">Tổng sức chứa</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Thao tác</div>
+            <div class="card-body">
+                <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#addRoomModal">
+                    Thêm phòng thi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                Danh sách phòng thi
+            </div>
+            <div class="card-body">
+                {% if rooms|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="roomsTable">
+                        <thead>
+                            <tr>
+                                <th>Mã phòng</th>
+                                <th>Tên phòng</th>
+                                <th>Tòa nhà</th>
+                                <th>Sức chứa</th>
+                                <th>Máy tính</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for room in rooms %}
+                            <tr>
+                                <td>{{ room.room_id }}</td>
+                                <td>{{ room.name or room.room_id }}</td>
+                                <td>{{ room.building or 'Không xác định' }}</td>
+                                <td>{{ room.capacity }}</td>
+                                <td>{% if room.has_computers %}Có{% else %}Không{% endif %}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary edit-room-btn"
+                                                data-id="{{ room._id }}"
+                                                data-room-id="{{ room.room_id }}"
+                                                data-name="{{ room.name or '' }}"
+                                                data-building="{{ room.building or '' }}"
+                                                data-capacity="{{ room.capacity }}"
+                                                data-has-computers="{{ room.has_computers or false }}">
+                                            Sửa
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger delete-room-btn"
+                                                data-id="{{ room._id }}"
+                                                data-room-id="{{ room.room_id }}">
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    Không có phòng thi nào. Hãy thêm phòng thi mới hoặc nhập dữ liệu từ file Excel.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal thêm phòng thi -->
+<div class="modal fade" id="addRoomModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm phòng thi mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRoomForm">
+                    <div class="mb-3">
+                        <label for="roomId" class="form-label">Mã phòng</label>
+                        <input type="text" class="form-control" id="roomId" required>
+                        <div class="form-text">Ví dụ: P101, A203, ...</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="roomName" class="form-label">Tên phòng</label>
+                        <input type="text" class="form-control" id="roomName">
+                    </div>
+                    <div class="mb-3">
+                        <label for="roomBuilding" class="form-label">Tòa nhà</label>
+                        <input type="text" class="form-control" id="roomBuilding">
+                    </div>
+                    <div class="mb-3">
+                        <label for="roomCapacity" class="form-label">Sức chứa</label>
+                        <input type="number" class="form-control" id="roomCapacity" min="1" value="30" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="roomHasComputers">
+                        <label class="form-check-label" for="roomHasComputers">Có máy tính</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveRoomBtn">Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sửa phòng thi -->
+<div class="modal fade" id="editRoomModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sửa phòng thi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRoomForm">
+                    <input type="hidden" id="editRoomId">
+                    <div class="mb-3">
+                        <label for="editRoomIdField" class="form-label">Mã phòng</label>
+                        <input type="text" class="form-control" id="editRoomIdField" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRoomName" class="form-label">Tên phòng</label>
+                        <input type="text" class="form-control" id="editRoomName">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRoomBuilding" class="form-label">Tòa nhà</label>
+                        <input type="text" class="form-control" id="editRoomBuilding">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRoomCapacity" class="form-label">Sức chứa</label>
+                        <input type="number" class="form-control" id="editRoomCapacity" min="1" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editRoomHasComputers">
+                        <label class="form-check-label" for="editRoomHasComputers">Có máy tính</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateRoomBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý thêm phòng thi
+    document.getElementById('saveRoomBtn').addEventListener('click', async function() {
+        const roomId = document.getElementById('roomId').value;
+        const name = document.getElementById('roomName').value;
+        const building = document.getElementById('roomBuilding').value;
+        const capacity = parseInt(document.getElementById('roomCapacity').value);
+        const hasComputers = document.getElementById('roomHasComputers').checked;
+        
+        if (!roomId || !capacity) {
+            alert('Vui lòng nhập mã phòng và sức chứa');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/v1/rooms/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                },
+                body: JSON.stringify({
+                    room_id: roomId,
+                    name: name || null,
+                    building: building || null,
+                    capacity: capacity,
+                    has_computers: hasComputers
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Lỗi khi thêm phòng thi');
+            }
+            
+            // Thêm thành công, reload trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý sửa phòng thi
+    const editBtns = document.querySelectorAll('.edit-room-btn');
+    editBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const roomId = this.dataset.roomId;
+            const name = this.dataset.name;
+            const building = this.dataset.building;
+            const capacity = this.dataset.capacity;
+            const hasComputers = this.dataset.hasComputers === 'true';
+            
+            document.getElementById('editRoomId').value = id;
+            document.getElementById('editRoomIdField').value = roomId;
+            document.getElementById('editRoomName').value = name;
+            document.getElementById('editRoomBuilding').value = building;
+            document.getElementById('editRoomCapacity').value = capacity;
+            document.getElementById('editRoomHasComputers').checked = hasComputers;
+            
+            // Mở modal
+            const modal = new bootstrap.Modal(document.getElementById('editRoomModal'));
+            modal.show();
+        });
+    });
+    
+    // Xử lý cập nhật phòng thi
+    document.getElementById('updateRoomBtn').addEventListener('click', async function() {
+        const id = document.getElementById('editRoomId').value;
+        const name = document.getElementById('editRoomName').value;
+        const building = document.getElementById('editRoomBuilding').value;
+        const capacity = parseInt(document.getElementById('editRoomCapacity').value);
+        const hasComputers = document.getElementById('editRoomHasComputers').checked;
+        
+        if (!capacity) {
+            alert('Vui lòng nhập sức chứa');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/v1/rooms/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                },
+                body: JSON.stringify({
+                    name: name || null,
+                    building: building || null,
+                    capacity: capacity,
+                    has_computers: hasComputers
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Lỗi khi cập nhật phòng thi');
+            }
+            
+            // Cập nhật thành công, reload trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý xóa phòng thi
+    const deleteBtns = document.querySelectorAll('.delete-room-btn');
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.id;
+            const roomId = this.dataset.roomId;
+            
+            if (!confirm(`Bạn có chắc chắn muốn xóa phòng thi ${roomId}? Hành động này không thể hoàn tác.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/rooms/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                    }
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Lỗi khi xóa phòng thi');
+                }
+                
+                // Xóa thành công, reload trang
+                window.location.reload();
+            } catch (error) {
+                alert('Lỗi: ' + error.message);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

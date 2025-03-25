@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Thông tin cá nhân - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Thông tin cá nhân</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Thông tin tài khoản</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3 row">
+                    <label class="col-sm-4 col-form-label">Email:</label>
+                    <div class="col-sm-8">
+                        <p class="form-control-plaintext">{{ user.email }}</p>
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label class="col-sm-4 col-form-label">Họ và tên:</label>
+                    <div class="col-sm-8">
+                        <p class="form-control-plaintext">{{ user.full_name }}</p>
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label class="col-sm-4 col-form-label">Vai trò:</label>
+                    <div class="col-sm-8">
+                        <p class="form-control-plaintext">
+                            {% if user.role == 'admin' %}
+                                Quản trị viên
+                            {% elif user.role == 'teacher' %}
+                                Giảng viên
+                            {% elif user.role == 'student' %}
+                                Sinh viên
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                    Đổi mật khẩu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if student %}
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Thông tin sinh viên</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3 row">
+                    <label class="col-sm-4 col-form-label">Mã sinh viên:</label>
+                    <div class="col-sm-8">
+                        <p class="form-control-plaintext">{{ student.student_id }}</p>
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label class="col-sm-4 col-form-label">Lớp:</label>
+                    <div class="col-sm-8">
+                        <p class="form-control-plaintext">{{ student.class_name }}</p>
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label class="col-sm-4 col-form-label">Giới tính:</label>
+                    <div class="col-sm-8">
+                        <p class="form-control-plaintext">{{ student.gender }}</p>
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label class="col-sm-4 col-form-label">Số môn đăng ký:</label>
+                    <div class="col-sm-8">
+                        <p class="form-control-plaintext">{{ student.registered_subjects|length }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Đổi mật khẩu Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Đổi mật khẩu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm">
+                    <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Mật khẩu hiện tại</label>
+                        <input type="password" class="form-control" id="currentPassword" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">Mật khẩu mới</label>
+                        <input type="password" class="form-control" id="newPassword" required>
+                        <div class="form-text">Mật khẩu ít nhất 8 ký tự</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Xác nhận mật khẩu mới</label>
+                        <input type="password" class="form-control" id="confirmPassword" required>
+                    </div>
+                </form>
+                <div id="changePasswordResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="savePasswordBtn">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const changePasswordForm = document.getElementById('changePasswordForm');
+    const changePasswordResult = document.getElementById('changePasswordResult');
+    const savePasswordBtn = document.getElementById('savePasswordBtn');
+    
+    savePasswordBtn.addEventListener('click', async function() {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        // Reset result area
+        changePasswordResult.innerHTML = '';
+        
+        // Validate inputs
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            changePasswordResult.innerHTML = '<div class="alert alert-danger">Vui lòng nhập đầy đủ thông tin</div>';
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            changePasswordResult.innerHTML = '<div class="alert alert-danger">Mật khẩu mới phải có ít nhất 8 ký tự</div>';
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            changePasswordResult.innerHTML = '<div class="alert alert-danger">Mật khẩu xác nhận không khớp</div>';
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/v1/users/me/password', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': getAuthToken()
+                },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Không thể đổi mật khẩu');
+            }
+            
+            // Success
+            changePasswordResult.innerHTML = '<div class="alert alert-success">Đổi mật khẩu thành công!</div>';
+            
+            // Reset form
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+                modal.hide();
+            }, 2000);
+            
+        } catch (error) {
+            changePasswordResult.innerHTML = `<div class="alert alert-danger">Lỗi: ${error.message}</div>`;
+        }
+    });
+});
+</script>
+{% endblock %}

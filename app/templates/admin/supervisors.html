@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý giám thị - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Quản lý giám thị</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title">{{ teachers|length }}</h3>
+                <p class="card-text">Tổng số giám thị</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Thao tác</div>
+            <div class="card-body">
+                <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#addSupervisorModal">
+                    Thêm giám thị
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                Danh sách giám thị
+            </div>
+            <div class="card-body">
+                {% if teachers|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="supervisorsTable">
+                        <thead>
+                            <tr>
+                                <th>Mã giám thị</th>
+                                <th>Họ và tên</th>
+                                <th>Email</th>
+                                <th>Khoa/Bộ môn</th>
+                                <th>Số kỳ thi đã phân công</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for teacher in teachers %}
+                            <tr>
+                                <td>{{ teacher.teacher_id }}</td>
+                                <td>{{ teacher.full_name }}</td>
+                                <td>{{ teacher.email or 'Chưa cập nhật' }}</td>
+                                <td>{{ teacher.department or 'Không xác định' }}</td>
+                                <td>{{ teacher.exam_count }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary edit-supervisor-btn"
+                                                data-id="{{ teacher._id }}"
+                                                data-teacher-id="{{ teacher.teacher_id }}"
+                                                data-name="{{ teacher.full_name }}"
+                                                data-email="{{ teacher.email or '' }}"
+                                                data-department="{{ teacher.department or '' }}">
+                                            Sửa
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger delete-supervisor-btn"
+                                                data-id="{{ teacher._id }}"
+                                                data-name="{{ teacher.full_name }}"
+                                                data-exam-count="{{ teacher.exam_count }}">
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    Không có giám thị nào. Hãy thêm giám thị mới.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal thêm giám thị -->
+<div class="modal fade" id="addSupervisorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm giám thị mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addSupervisorForm">
+                    <div class="mb-3">
+                        <label for="teacherId" class="form-label">Mã giám thị</label>
+                        <input type="text" class="form-control" id="teacherId" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="teacherName" class="form-label">Họ và tên</label>
+                        <input type="text" class="form-control" id="teacherName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="teacherEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="teacherEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label for="teacherDepartment" class="form-label">Khoa/Bộ môn</label>
+                        <input type="text" class="form-control" id="teacherDepartment">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveSupervisorBtn">Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sửa giám thị -->
+<div class="modal fade" id="editSupervisorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sửa thông tin giám thị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editSupervisorForm">
+                    <input type="hidden" id="editSupervisorId">
+                    <div class="mb-3">
+                        <label for="editTeacherId" class="form-label">Mã giám thị</label>
+                        <input type="text" class="form-control" id="editTeacherId" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTeacherName" class="form-label">Họ và tên</label>
+                        <input type="text" class="form-control" id="editTeacherName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTeacherEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editTeacherEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTeacherDepartment" class="form-label">Khoa/Bộ môn</label>
+                        <input type="text" class="form-control" id="editTeacherDepartment">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateSupervisorBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý thêm giám thị
+    document.getElementById('saveSupervisorBtn').addEventListener('click', async function() {
+        const teacherId = document.getElementById('teacherId').value;
+        const name = document.getElementById('teacherName').value;
+        const email = document.getElementById('teacherEmail').value;
+        const department = document.getElementById('teacherDepartment').value;
+        
+        if (!teacherId || !name) {
+            alert('Vui lòng nhập mã giám thị và họ tên');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/v1/teachers/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': getAuthToken()
+                },
+                body: JSON.stringify({
+                    teacher_id: teacherId,
+                    full_name: name,
+                    email: email || null,
+                    department: department || null
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Lỗi khi thêm giám thị');
+            }
+            
+            // Thành công, tải lại trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý sửa giám thị
+    const editBtns = document.querySelectorAll('.edit-supervisor-btn');
+    editBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const teacherId = this.dataset.teacherId;
+            const name = this.dataset.name;
+            const email = this.dataset.email;
+            const department = this.dataset.department;
+            
+            document.getElementById('editSupervisorId').value = id;
+            document.getElementById('editTeacherId').value = teacherId;
+            document.getElementById('editTeacherName').value = name;
+            document.getElementById('editTeacherEmail').value = email;
+            document.getElementById('editTeacherDepartment').value = department;
+            
+            // Mở modal
+            const modal = new bootstrap.Modal(document.getElementById('editSupervisorModal'));
+            modal.show();
+        });
+    });
+    
+    // Xử lý cập nhật giám thị
+    document.getElementById('updateSupervisorBtn').addEventListener('click', async function() {
+        const id = document.getElementById('editSupervisorId').value;
+        const name = document.getElementById('editTeacherName').value;
+        const email = document.getElementById('editTeacherEmail').value;
+        const department = document.getElementById('editTeacherDepartment').value;
+        
+        if (!name) {
+            alert('Vui lòng nhập họ tên giám thị');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/v1/teachers/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': getAuthToken()
+                },
+                body: JSON.stringify({
+                    full_name: name,
+                    email: email || null,
+                    department: department || null
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Lỗi khi cập nhật giám thị');
+            }
+            
+            // Thành công, tải lại trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý xóa giám thị
+    const deleteBtns = document.querySelectorAll('.delete-supervisor-btn');
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.id;
+            const name = this.dataset.name;
+            const examCount = parseInt(this.dataset.examCount);
+            
+            if (examCount > 0) {
+                alert(`Không thể xóa giám thị "${name}" vì đã được phân công cho ${examCount} kỳ thi. Vui lòng gỡ giám thị khỏi các kỳ thi trước.`);
+                return;
+            }
+            
+            if (!confirm(`Bạn có chắc chắn muốn xóa giám thị "${name}"? Hành động này không thể hoàn tác.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/teachers/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': getAuthToken()
+                    }
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Lỗi khi xóa giám thị');
+                }
+                
+                // Thành công, tải lại trang
+                window.location.reload();
+            } catch (error) {
+                alert('Lỗi: ' + error.message);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Lịch thi dạng lịch - Hệ thống lập lịch thi{% endblock %}
+
+{% block extra_css %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css' rel='stylesheet' />
+<style>
+    #calendar {
+        margin: 20px 0;
+    }
+    .fc-event {
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Lịch thi dạng lịch</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between">
+            <a href="/ui/exams" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại danh sách
+            </a>
+            <div class="btn-group">
+                <button id="monthViewBtn" class="btn btn-outline-primary active">Tháng</button>
+                <button id="weekViewBtn" class="btn btn-outline-primary">Tuần</button>
+                <button id="dayViewBtn" class="btn btn-outline-primary">Ngày</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div id="calendar"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xem chi tiết kỳ thi -->
+<div class="modal fade" id="examDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết kỳ thi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0" id="examSubjectName"></h6>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Mã môn:</dt>
+                            <dd class="col-sm-8" id="examSubjectCode"></dd>
+                            
+                            <dt class="col-sm-4">Số báo danh:</dt>
+                            <dd class="col-sm-8" id="examNumber"></dd>
+                            
+                            <dt class="col-sm-4">Ngày thi:</dt>
+                            <dd class="col-sm-8" id="examDate"></dd>
+                            
+                            <dt class="col-sm-4">Giờ thi:</dt>
+                            <dd class="col-sm-8"><span id="examStartTime"></span> - <span id="examEndTime"></span></dd>
+                            
+                            <dt class="col-sm-4">Thời lượng:</dt>
+                            <dd class="col-sm-8"><span id="examDuration"></span> phút</dd>
+                            
+                            <dt class="col-sm-4">Phòng thi:</dt>
+                            <dd class="col-sm-8" id="examRoom"></dd>
+                            
+                            <dt class="col-sm-4">Giám thị:</dt>
+                            <dd class="col-sm-8" id="examSupervisors"></dd>
+                        </dl>
+                    </div>
+                    <div class="card-footer text-muted">
+                        <p class="mb-0"><small>
+                            Vui lòng có mặt tại phòng thi trước ít nhất 15 phút. Mang theo thẻ sinh viên hoặc giấy tờ tùy thân.
+                        </small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/locales/vi.js'></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Chuẩn bị dữ liệu cho lịch
+    const exams = [
+        {% for exam in exams %}
+        {
+            id: '{{ exam.id }}',
+            title: '{{ exam.subject_code }} - {{ exam.subject_name }}',
+            start: '{{ exam.start_time.isoformat() }}',
+            end: '{{ exam.end_time.isoformat() }}',
+            color: '{{ exam.color }}',
+            extendedProps: {
+                subjectCode: '{{ exam.subject_code }}',
+                subjectName: '{{ exam.subject_name }}',
+                room: '{{ exam.room }}',
+                duration: {{ exam.duration }},
+                examNumber: '{{ exam.exam_number or "N/A" }}',
+                supervisors: '{{ exam.supervisor_names | safe }}' // Ensure supervisors are rendered safely
+            }
+        },
+        {% endfor %}
+    ];
+    
+    // Khởi tạo calendar
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'vi',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        events: exams,
+        eventClick: function(info) {
+            const exam = info.event;
+            
+            // Hiển thị thông tin chi tiết
+            document.getElementById('examSubjectName').textContent = exam.title;
+            document.getElementById('examSubjectCode').textContent = exam.extendedProps.subjectCode;
+            document.getElementById('examNumber').textContent = exam.extendedProps.examNumber;
+            
+            const startDate = new Date(exam.start);
+            const endDate = new Date(exam.end);
+            
+            document.getElementById('examDate').textContent = startDate.toLocaleDateString('vi-VN');
+            document.getElementById('examStartTime').textContent = startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('examEndTime').textContent = endDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('examDuration').textContent = exam.extendedProps.duration;
+            document.getElementById('examRoom').textContent = exam.extendedProps.room;
+            const supervisors = exam.extendedProps.supervisors;
+            document.getElementById('examSupervisors').textContent = 
+                supervisors && supervisors.trim() ? supervisors : 'Chưa phân công';
+            
+            // Hiển thị modal
+            const modal = new bootstrap.Modal(document.getElementById('examDetailModal'));
+            modal.show();
+        }
+    });
+    
+    calendar.render();
+    
+    // Chuyển đổi chế độ xem
+    document.getElementById('monthViewBtn').addEventListener('click', function() {
+        calendar.changeView('dayGridMonth');
+        setActiveButton('monthViewBtn');
+    });
+    
+    document.getElementById('weekViewBtn').addEventListener('click', function() {
+        calendar.changeView('timeGridWeek');
+        setActiveButton('weekViewBtn');
+    });
+    
+    document.getElementById('dayViewBtn').addEventListener('click', function() {
+        calendar.changeView('timeGridDay');
+        setActiveButton('dayViewBtn');
+    });
+    
+    function setActiveButton(activeId) {
+        const buttons = ['monthViewBtn', 'weekViewBtn', 'dayViewBtn'];
+        buttons.forEach(id => {
+            const button = document.getElementById(id);
+            if (id === activeId) {
+                button.classList.add('btn-primary');
+                button.classList.remove('btn-outline-primary');
+            } else {
+                button.classList.add('btn-outline-primary');
+                button.classList.remove('btn-primary');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Lỗi - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Đã xảy ra lỗi</h5>
+            </div>
+            <div class="card-body">
+                <p>{{ message }}</p>
+                <div class="text-center mt-4">
+                    <a href="/ui" class="btn btn-primary">Quay lại trang chủ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

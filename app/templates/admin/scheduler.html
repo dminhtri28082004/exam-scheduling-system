@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Lập lịch kì thi - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Lập lịch kì thi</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">{{ subjects_count }}</h5>
+                <p class="card-text">Môn học</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">{{ rooms_count }}</h5>
+                <p class="card-text">Phòng thi</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Tạo lịch thi cho kì thi
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <strong>Cảnh báo!</strong> Tạo lịch thi mới sẽ xóa toàn bộ lịch thi hiện có trong hệ thống. Hãy đảm bảo bạn đã sao lưu dữ liệu nếu cần.
+                </div>
+                <form id="scheduleForm">
+                    <div class="mb-3">
+                        <label for="examPeriodName" class="form-label">Tên kì thi</label>
+                        <input type="text" class="form-control" id="examPeriodName" placeholder="Ví dụ: Kì thi cuối kì Học kì 1 năm 2023-2024" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="startDate" class="form-label">Ngày bắt đầu</label>
+                        <input type="date" class="form-control" id="startDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="endDate" class="form-label">Ngày kết thúc</label>
+                        <input type="date" class="form-control" id="endDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="firstExamTime" class="form-label">Giờ bắt đầu ca thi đầu tiên</label>
+                        <input type="time" class="form-control" id="firstExamTime" value="08:00" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="lastExamTime" class="form-label">Giờ kết thúc ca thi cuối cùng</label>
+                        <input type="time" class="form-control" id="lastExamTime" value="17:00" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="supervisorsPerRoom" class="form-label">Số giám thị mỗi phòng</label>
+                        <input type="number" class="form-control" id="supervisorsPerRoom" min="1" max="3" value="2" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary" id="btnPreview">Xem trước</button>
+                        <button type="button" class="btn btn-success" id="btnCreate">Tạo lịch thi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Kết quả xem trước
+            </div>
+            <div class="card-body">
+                <div id="previewResults">
+                    <div class="text-center text-muted">
+                        <p>Nhấn "Xem trước" để xem kết quả lập lịch thi</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnPreview = document.getElementById('btnPreview');
+    const btnCreate = document.getElementById('btnCreate');
+    const previewResults = document.getElementById('previewResults');
+    
+    // Set default dates
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(today.getMonth() + 1);
+    
+    document.getElementById('startDate').valueAsDate = nextMonth;
+    
+    const endDate = new Date(nextMonth);
+    endDate.setDate(nextMonth.getDate() + 14);
+    document.getElementById('endDate').valueAsDate = endDate;
+    
+    btnPreview.addEventListener('click', async function() {
+        const formData = getFormData();
+        
+        try {
+            previewResults.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Đang tính toán...</p></div>';
+            
+            const response = await fetch('/api/v1/scheduler/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': getAuthToken()  // Use the new function
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            
+            const data = await response.json();
+            displayPreviewResults(data);
+        } catch (error) {
+            console.error('Error:', error);
+            previewResults.innerHTML = `<div class="alert alert-danger">Lỗi: ${error.message}</div>`;
+        }
+    });
+    
+    btnCreate.addEventListener('click', async function() {
+        if (!confirm('CẢNH BÁO: Tạo lịch thi mới sẽ XÓA TẤT CẢ lịch thi hiện có trong hệ thống. Bạn có chắc chắn muốn tiếp tục?')) {
+            return;
+        }
+        
+        const formData = getFormData();
+        
+        try {
+            previewResults.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Đang tạo lịch thi...</p></div>';
+            
+            const response = await fetch('/api/v1/scheduler/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': getAuthToken()  // Use the new function
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            
+            const data = await response.json();
+            previewResults.innerHTML = `
+                <div class="alert alert-success">
+                    <h5>Tạo lịch thi thành công!</h5>
+                    <p>Đã tạo ${data.exams_created} kỳ thi.</p>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error:', error);
+            previewResults.innerHTML = `<div class="alert alert-danger">Lỗi: ${error.message}</div>`;
+        }
+    });
+    
+    function getFormData() {
+        const examPeriodName = document.getElementById('examPeriodName').value;
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const firstExamTime = document.getElementById('firstExamTime').value;
+        const lastExamTime = document.getElementById('lastExamTime').value;
+        const supervisorsPerRoom = document.getElementById('supervisorsPerRoom').value;
+        
+        return {
+            exam_period_name: examPeriodName,
+            start_date: `${startDate}T00:00:00`,
+            end_date: `${endDate}T23:59:59`,
+            first_exam_time: `${firstExamTime}:00`,
+            last_exam_time: `${lastExamTime}:00`,
+            supervisors_per_room: parseInt(supervisorsPerRoom)
+        };
+    }
+    
+    function displayPreviewResults(data) {
+        if (!data || data.length === 0) {
+            previewResults.innerHTML = '<div class="alert alert-warning">Không có kết quả nào được tạo. Hãy kiểm tra dữ liệu đầu vào.</div>';
+            return;
+        }
+        
+        let html = `
+            <div class="alert alert-info mb-3">
+                Tìm thấy ${data.length} ca thi
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Môn thi</th>
+                            <th>Phòng</th>
+                            <th>Thời gian</th>
+                            <th>Sinh viên</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.forEach(exam => {
+            const startTime = new Date(exam.start_time);
+            const endTime = new Date(exam.end_time);
+            
+            html += `
+                <tr>
+                    <td>${exam.subject.code} - ${exam.subject.name}</td>
+                    <td>${exam.room.room_id}</td>
+                    <td>${startTime.toLocaleDateString()} ${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}</td>
+                    <td>${exam.num_students}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        previewResults.innerHTML = html;
+    }
+    
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+});
+</script>
+{% endblock %}

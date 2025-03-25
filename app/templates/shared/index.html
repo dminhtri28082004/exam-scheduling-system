@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Trang chủ - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Chào mừng đến với Hệ thống lập lịch thi</h1>
+    <p class="lead">Hệ thống quản lý và lập lịch thi tự động giúp tối ưu hóa thời gian và nguồn lực.</p>
+    <hr class="my-4">
+    <p>Đăng nhập để xem lịch thi hoặc quản lý hệ thống.</p>
+    <a class="btn btn-primary btn-lg" href="/ui/login" role="button">Đăng nhập</a>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Sinh viên</h5>
+                <p class="card-text">Xem lịch thi, phòng thi và thông tin chi tiết về các kỳ thi đã đăng ký.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Giáo viên</h5>
+                <p class="card-text">Quản lý lịch coi thi và xem thông tin về các kỳ thi được phân công.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Quản trị viên</h5>
+                <p class="card-text">Quản lý hệ thống, lập lịch thi tự động và phân công giáo viên coi thi.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

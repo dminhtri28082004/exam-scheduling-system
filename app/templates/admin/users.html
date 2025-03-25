@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý người dùng - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Quản lý người dùng</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center mb-3">
+            <div class="card-body">
+                <h3 class="card-title">{{ users|length }}</h3>
+                <p class="card-text">Tổng số người dùng</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center mb-3">
+            <div class="card-body">
+                <h3 class="card-title">{{ admin_count }}</h3>
+                <p class="card-text">Quản trị viên</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center mb-3">
+            <div class="card-body">
+                <h3 class="card-title">{{ teacher_count }}</h3>
+                <p class="card-text">Giảng viên</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title">{{ student_count }}</h3>
+                <p class="card-text">Sinh viên</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Danh sách người dùng</span>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                    Thêm người dùng
+                </button>
+            </div>
+            <div class="card-body">
+                {% if users|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Họ tên</th>
+                                <th>Vai trò</th>
+                                <th>Trạng thái</th>
+                                <th>Ngày tạo</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user_item in users %}
+                            <tr>
+                                <td>{{ user_item.email }}</td>
+                                <td>{{ user_item.full_name }}</td>
+                                <td>
+                                    {% if user_item.role == 'admin' %}
+                                        <span class="badge bg-danger">Quản trị viên</span>
+                                    {% elif user_item.role == 'teacher' %}
+                                        <span class="badge bg-info">Giảng viên</span>
+                                    {% elif user_item.role == 'student' %}
+                                        <span class="badge bg-success">Sinh viên</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user_item.is_active %}
+                                        <span class="badge bg-success">Hoạt động</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Bị khóa</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user_item.created_at.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary edit-user-btn"
+                                                data-id="{{ user_item._id }}"
+                                                data-email="{{ user_item.email }}"
+                                                data-name="{{ user_item.full_name }}"
+                                                data-role="{{ user_item.role }}"
+                                                data-active="{{ user_item.is_active }}">
+                                            Sửa
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger delete-user-btn"
+                                                data-id="{{ user_item._id }}"
+                                                data-email="{{ user_item.email }}">
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    Không có người dùng nào.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal thêm người dùng -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm người dùng mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="mb-3">
+                        <label for="userEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="userEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userName" class="form-label">Họ tên</label>
+                        <input type="text" class="form-control" id="userName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userRole" class="form-label">Vai trò</label>
+                        <select class="form-select" id="userRole" required>
+                            <option value="admin">Quản trị viên</option>
+                            <option value="teacher">Giảng viên</option>
+                            <option value="student">Sinh viên</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userPassword" class="form-label">Mật khẩu</label>
+                        <input type="password" class="form-control" id="userPassword" required>
+                        <div class="form-text">Mật khẩu phải có ít nhất 8 ký tự</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveUserBtn">Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sửa người dùng -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sửa thông tin người dùng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="mb-3">
+                        <label for="editUserEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editUserEmail" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editUserName" class="form-label">Họ tên</label>
+                        <input type="text" class="form-control" id="editUserName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editUserRole" class="form-label">Vai trò</label>
+                        <select class="form-select" id="editUserRole" required>
+                            <option value="admin">Quản trị viên</option>
+                            <option value="teacher">Giảng viên</option>
+                            <option value="student">Sinh viên</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editUserActive">
+                        <label class="form-check-label" for="editUserActive">Tài khoản hoạt động</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editUserPassword" class="form-label">Mật khẩu mới (để trống nếu không thay đổi)</label>
+                        <input type="password" class="form-control" id="editUserPassword">
+                        <div class="form-text">Mật khẩu mới phải có ít nhất 8 ký tự</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateUserBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý thêm người dùng
+    document.getElementById('saveUserBtn').addEventListener('click', async function() {
+        const email = document.getElementById('userEmail').value;
+        const name = document.getElementById('userName').value;
+        const role = document.getElementById('userRole').value;
+        const password = document.getElementById('userPassword').value;
+        
+        if (!email || !name || !password) {
+            alert('Vui lòng nhập đầy đủ thông tin');
+            return;
+        }
+        
+        if (password.length < 8) {
+            alert('Mật khẩu phải có ít nhất 8 ký tự');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/v1/users/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                },
+                body: JSON.stringify({
+                    email: email,
+                    full_name: name,
+                    role: role,
+                    password: password
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Lỗi khi thêm người dùng');
+            }
+            
+            // Thêm thành công, reload trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý sửa người dùng
+    const editBtns = document.querySelectorAll('.edit-user-btn');
+    editBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const email = this.dataset.email;
+            const name = this.dataset.name;
+            const role = this.dataset.role;
+            const active = this.dataset.active === 'True';
+            
+            document.getElementById('editUserId').value = id;
+            document.getElementById('editUserEmail').value = email;
+            document.getElementById('editUserName').value = name;
+            document.getElementById('editUserRole').value = role;
+            document.getElementById('editUserActive').checked = active;
+            document.getElementById('editUserPassword').value = '';
+            
+            // Mở modal
+            const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            modal.show();
+        });
+    });
+    
+    // Xử lý cập nhật người dùng
+    document.getElementById('updateUserBtn').addEventListener('click', async function() {
+        const id = document.getElementById('editUserId').value;
+        const name = document.getElementById('editUserName').value;
+        const role = document.getElementById('editUserRole').value;
+        const active = document.getElementById('editUserActive').checked;
+        const password = document.getElementById('editUserPassword').value;
+        
+        if (!name) {
+            alert('Vui lòng nhập tên người dùng');
+            return;
+        }
+        
+        if (password && password.length < 8) {
+            alert('Mật khẩu mới phải có ít nhất 8 ký tự');
+            return;
+        }
+        
+        try {
+            const data = {
+                full_name: name,
+                role: role,
+                is_active: active
+            };
+            
+            if (password) {
+                data.password = password;
+            }
+            
+            const response = await fetch(`/api/v1/users/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                const responseData = await response.json();
+                throw new Error(responseData.detail || 'Lỗi khi cập nhật người dùng');
+            }
+            
+            // Cập nhật thành công, reload trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý xóa người dùng
+    const deleteBtns = document.querySelectorAll('.delete-user-btn');
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.id;
+            const email = this.dataset.email;
+            
+            if (!confirm(`Bạn có chắc chắn muốn xóa người dùng "${email}"? Hành động này không thể hoàn tác.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/users/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                    }
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Lỗi khi xóa người dùng');
+                }
+                
+                // Xóa thành công, reload trang
+                window.location.reload();
+            } catch (error) {
+                alert('Lỗi: ' + error.message);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

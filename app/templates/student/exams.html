@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}Lịch thi - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Lịch thi</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Thông tin sinh viên
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ student.full_name }}</h5>
+                <p class="card-text">Mã số: {{ student.student_id }}</p>
+                <p class="card-text">Lớp: {{ student.class_name }}</p>
+                <p class="card-text">Email: {{ student.email }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Lọc lịch thi
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary" id="btnShowAll">Tất cả</button>
+                        <button type="button" class="btn btn-outline-primary" id="btnShowUpcoming">Sắp tới</button>
+                    </div>
+                    <a href="/ui/exams/calendar" class="btn btn-outline-info">Xem dạng lịch</a>
+                </div>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">Từ ngày</span>
+                            <input type="date" class="form-control" id="startDateFilter">
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">Đến ngày</span>
+                            <input type="date" class="form-control" id="endDateFilter">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid">
+                    <button type="button" class="btn btn-primary" id="btnApplyFilter">Áp dụng bộ lọc</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Danh sách kỳ thi</span>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="groupBySubjectCheck">
+                    <label class="form-check-label" for="groupBySubjectCheck">Nhóm theo môn học</label>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if exams|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Mã môn</th>
+                                <th>Tên môn học</th>
+                                <th>Phòng thi</th>
+                                <th>Số báo danh</th>
+                                <th>Ngày thi</th>
+                                <th>Giờ thi</th>
+                                <th>Giám thị</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for exam in exams %}
+                            <tr class="exam-row" 
+                                data-start="{{ exam.start_time.isoformat() }}"
+                                data-subject="{{ exam.subject_code }}"
+                                data-date="{{ exam.start_time.strftime('%Y-%m-%d') }}">
+                                <td>{{ exam.subject_code }}</td>
+                                <td>{{ exam.subject_name }}</td>
+                                <td>{{ exam.room }}</td>
+                                <td>
+                                    {% if exam.exam_number %}
+                                    <span class="badge bg-primary">{{ exam.exam_number }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ exam.start_time.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ exam.start_time.strftime('%H:%M') }} - {{ exam.end_time.strftime('%H:%M') }}</td>
+                                <td>
+                                    {% if exam.supervisors and exam.supervisors|length > 0 %}
+                                        {% for supervisor in exam.supervisors %}
+                                        <div>{{ supervisor.full_name }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-secondary">Chưa phân công</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-info view-exam-btn" 
+                                            data-subject="{{ exam.subject_name }}"
+                                            data-code="{{ exam.subject_code }}"
+                                            data-room="{{ exam.room }}"
+                                            data-date="{{ exam.start_time.strftime('%d/%m/%Y') }}"
+                                            data-start="{{ exam.start_time.strftime('%H:%M') }}"
+                                            data-end="{{ exam.end_time.strftime('%H:%M') }}"
+                                            data-duration="{{ exam.duration }}"
+                                            data-exam-number="{{ exam.exam_number }}"
+                                            data-supervisors="{{ exam.supervisors|map(attribute='full_name')|join(', ') }}">
+                                        Chi tiết
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <h5>Bạn chưa có lịch thi nào.</h5>
+                    {% if registered_subjects|length > 0 %}
+                    <p>Bạn đã đăng ký những môn học sau nhưng chưa có lịch thi:</p>
+                    <ul>
+                        {% for subject in registered_subjects %}
+                        <li><strong>{{ subject.code }}</strong> - {{ subject.name }}</li>
+                        {% endfor %}
+                    </ul>
+                    <p>Lịch thi sẽ được cập nhật khi nhà trường tổ chức kỳ thi cho các môn học này.</p>
+                    {% else %}
+                    <p>Bạn chưa đăng ký môn học nào, hoặc các môn đã đăng ký chưa được lên lịch thi.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if registered_subjects|length > 0 and exams|length > 0 %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <span>Các môn học đã đăng ký nhưng chưa có lịch thi</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Mã môn</th>
+                                <th>Tên môn học</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subject in registered_subjects %}
+                            <tr>
+                                <td>{{ subject.code }}</td>
+                                <td>{{ subject.name }}</td>
+                                <td><span class="badge bg-warning">Chưa có lịch thi</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal xem chi tiết kỳ thi -->
+<div class="modal fade" id="examDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết kỳ thi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0" id="examSubjectName"></h6>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Mã môn:</dt>
+                            <dd class="col-sm-8" id="examSubjectCode"></dd>
+                            
+                            <dt class="col-sm-4">Số báo danh:</dt>
+                            <dd class="col-sm-8" id="examNumber"></dd>
+                            
+                            <dt class="col-sm-4">Ngày thi:</dt>
+                            <dd class="col-sm-8" id="examDate"></dd>
+                            
+                            <dt class="col-sm-4">Giờ thi:</dt>
+                            <dd class="col-sm-8"><span id="examStartTime"></span> - <span id="examEndTime"></span></dd>
+                            
+                            <dt class="col-sm-4">Thời lượng:</dt>
+                            <dd class="col-sm-8"><span id="examDuration"></span> phút</dd>
+                            
+                            <dt class="col-sm-4">Phòng thi:</dt>
+                            <dd class="col-sm-8" id="examRoom"></dd>
+                            
+                            <dt class="col-sm-4">Giám thị:</dt>
+                            <dd class="col-sm-8" id="examSupervisors"></dd>
+                        </dl>
+                    </div>
+                    <div class="card-footer text-muted">
+                        <p class="mb-0"><small>
+                            Vui lòng có mặt tại phòng thi trước ít nhất 15 phút. Mang theo thẻ sinh viên hoặc giấy tờ tùy thân.
+                        </small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Các nút lọc dữ liệu
+    const btnShowAll = document.getElementById('btnShowAll');
+    const btnShowUpcoming = document.getElementById('btnShowUpcoming');
+    const btnApplyFilter = document.getElementById('btnApplyFilter');
+    const startDateFilter = document.getElementById('startDateFilter');
+    const endDateFilter = document.getElementById('endDateFilter');
+    const groupBySubjectCheck = document.getElementById('groupBySubjectCheck');
+    const examRows = document.querySelectorAll('.exam-row');
+    
+    // Khởi tạo bộ lọc theo ngày với ngày hiện tại và 3 tháng sau
+    const today = new Date();
+    startDateFilter.valueAsDate = today;
+    
+    const threeMonthsLater = new Date(today);
+    threeMonthsLater.setMonth(today.getMonth() + 3);
+    endDateFilter.valueAsDate = threeMonthsLater;
+    
+    // Hiển thị tất cả
+    btnShowAll.addEventListener('click', function() {
+        examRows.forEach(row => {
+            row.style.display = '';
+        });
+        btnShowAll.classList.add('btn-secondary');
+        btnShowAll.classList.remove('btn-outline-secondary');
+        btnShowUpcoming.classList.add('btn-outline-primary');
+        btnShowUpcoming.classList.remove('btn-primary');
+    });
+    
+    // Chỉ hiển thị các kỳ thi sắp tới
+    btnShowUpcoming.addEventListener('click', function() {
+        const now = new Date().toISOString();
+        examRows.forEach(row => {
+            const startTime = row.getAttribute('data-start');
+            if (startTime > now) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        btnShowUpcoming.classList.add('btn-primary');
+        btnShowUpcoming.classList.remove('btn-outline-primary');
+        btnShowAll.classList.add('btn-outline-secondary');
+        btnShowAll.classList.remove('btn-secondary');
+    });
+    
+    // Lọc theo khoảng thời gian
+    btnApplyFilter.addEventListener('click', function() {
+        const startDate = startDateFilter.value ? new Date(startDateFilter.value) : null;
+        const endDate = endDateFilter.value ? new Date(endDateFilter.value) : null;
+        
+        if (!startDate && !endDate) {
+            btnShowAll.click();
+            return;
+        }
+        
+        examRows.forEach(row => {
+            const examDate = new Date(row.getAttribute('data-date'));
+            
+            let visible = true;
+            
+            if (startDate && examDate < startDate) {
+                visible = false;
+            }
+            
+            if (endDate) {
+                // Set end date to the end of the day
+                endDate.setHours(23, 59, 59);
+                if (examDate > endDate) {
+                    visible = false;
+                }
+            }
+            
+            row.style.display = visible ? '' : 'none';
+        });
+        
+        // Change button states
+        btnShowAll.classList.add('btn-outline-secondary');
+        btnShowAll.classList.remove('btn-secondary');
+        btnShowUpcoming.classList.add('btn-outline-primary');
+        btnShowUpcoming.classList.remove('btn-primary');
+    });
+    
+    // Nhóm theo môn học
+    groupBySubjectCheck.addEventListener('change', function() {
+        const grouped = this.checked;
+        
+        if (grouped) {
+            // Nhóm theo môn học
+            const subjectGroups = {};
+            
+            // Tạo ra object lưu trữ theo môn học
+            examRows.forEach(row => {
+                const subjectCode = row.getAttribute('data-subject');
+                if (!subjectGroups[subjectCode]) {
+                    subjectGroups[subjectCode] = [];
+                }
+                subjectGroups[subjectCode].push(row);
+            });
+            
+            // Ẩn tất cả các row trừ row đầu tiên của mỗi nhóm
+            Object.values(subjectGroups).forEach(group => {
+                for (let i = 1; i < group.length; i++) {
+                    group[i].style.display = 'none';
+                }
+            });
+        } else {
+            // Hiển thị lại tất cả
+            btnShowAll.click();
+        }
+    });
+    
+    // Hiển thị chi tiết kỳ thi
+    const viewExamBtns = document.querySelectorAll('.view-exam-btn');
+    viewExamBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('examSubjectName').textContent = this.dataset.subject;
+            document.getElementById('examSubjectCode').textContent = this.dataset.code;
+            document.getElementById('examDate').textContent = this.dataset.date;
+            document.getElementById('examStartTime').textContent = this.dataset.start;
+            document.getElementById('examEndTime').textContent = this.dataset.end;
+            document.getElementById('examDuration').textContent = this.dataset.duration;
+            document.getElementById('examRoom').textContent = this.dataset.room;
+            document.getElementById('examNumber').textContent = this.dataset.examNumber || 'N/A';
+            document.getElementById('examSupervisors').textContent = 
+                this.dataset.supervisors && this.dataset.supervisors.trim() ? this.dataset.supervisors : 'Chưa phân công';
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('examDetailModal'));
+            modal.show();
+        });
+    });
+    
+    // Mặc định: hiển thị các kỳ thi sắp tới
+    btnShowUpcoming.click();
+});
+</script>
+{% endblock %}

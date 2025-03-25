@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý môn học - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Quản lý môn học</h2>
+        <hr>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Danh sách môn học ({{ subjects|length }})</span>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+                    <i class="bi bi-plus"></i> Thêm môn học
+                </button>
+            </div>
+            <div class="card-body">
+                {% if subjects|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="subjectsTable">
+                        <thead>
+                            <tr>
+                                <th>Mã môn</th>
+                                <th>Tên môn học</th>
+                                <th>Thời lượng (phút)</th>
+                                <th>Số sinh viên</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subject in subjects %}
+                            <tr>
+                                <td>{{ subject.code }}</td>
+                                <td>{{ subject.name }}</td>
+                                <td>{{ subject.duration }}</td>
+                                <td>{{ subject.registered_students|length }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary edit-subject-btn"
+                                                data-id="{{ subject._id }}"
+                                                data-code="{{ subject.code }}"
+                                                data-name="{{ subject.name }}"
+                                                data-duration="{{ subject.duration }}">
+                                            Sửa
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger delete-subject-btn"
+                                                data-id="{{ subject._id }}"
+                                                data-name="{{ subject.name }}">
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    Không có môn học nào. Hãy thêm môn học hoặc nhập dữ liệu từ file Excel.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header">Thống kê</div>
+            <div class="card-body">
+                <p><strong>Tổng số môn học:</strong> {{ subjects|length }}</p>
+                <p><strong>Thời lượng trung bình:</strong> 
+                {% if subjects|length > 0 %}
+                {{ (subjects|sum(attribute='duration') / subjects|length)|round|int }} phút
+                {% else %}
+                0 phút
+                {% endif %}
+                </p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">Nhập dữ liệu</div>
+            <div class="card-body">
+                <a href="/ui/admin/import" class="btn btn-outline-primary w-100">Nhập từ Excel</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal thêm môn học -->
+<div class="modal fade" id="addSubjectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm môn học mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addSubjectForm">
+                    <div class="mb-3">
+                        <label for="subjectCode" class="form-label">Mã môn học</label>
+                        <input type="text" class="form-control" id="subjectCode" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subjectName" class="form-label">Tên môn học</label>
+                        <input type="text" class="form-control" id="subjectName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subjectDuration" class="form-label">Thời lượng thi (phút)</label>
+                        <input type="number" class="form-control" id="subjectDuration" min="30" value="90" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveSubjectBtn">Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sửa môn học -->
+<div class="modal fade" id="editSubjectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sửa môn học</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editSubjectForm">
+                    <input type="hidden" id="editSubjectId">
+                    <div class="mb-3">
+                        <label for="editSubjectCode" class="form-label">Mã môn học</label>
+                        <input type="text" class="form-control" id="editSubjectCode" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSubjectName" class="form-label">Tên môn học</label>
+                        <input type="text" class="form-control" id="editSubjectName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSubjectDuration" class="form-label">Thời lượng thi (phút)</label>
+                        <input type="number" class="form-control" id="editSubjectDuration" min="30" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateSubjectBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý thêm môn học
+    document.getElementById('saveSubjectBtn').addEventListener('click', async function() {
+        const code = document.getElementById('subjectCode').value;
+        const name = document.getElementById('subjectName').value;
+        const duration = parseInt(document.getElementById('subjectDuration').value);
+        
+        if (!code || !name || !duration) {
+            alert('Vui lòng nhập đầy đủ thông tin');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/v1/subjects/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                },
+                body: JSON.stringify({
+                    code: code,
+                    name: name,
+                    duration: duration,
+                    registered_students: []
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Lỗi khi thêm môn học');
+            }
+            
+            // Thêm thành công, reload trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý sửa môn học
+    const editBtns = document.querySelectorAll('.edit-subject-btn');
+    editBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const code = this.dataset.code;
+            const name = this.dataset.name;
+            const duration = this.dataset.duration;
+            
+            document.getElementById('editSubjectId').value = id;
+            document.getElementById('editSubjectCode').value = code;
+            document.getElementById('editSubjectName').value = name;
+            document.getElementById('editSubjectDuration').value = duration;
+            
+            // Mở modal
+            const modal = new bootstrap.Modal(document.getElementById('editSubjectModal'));
+            modal.show();
+        });
+    });
+    
+    // Xử lý cập nhật môn học
+    document.getElementById('updateSubjectBtn').addEventListener('click', async function() {
+        const id = document.getElementById('editSubjectId').value;
+        const name = document.getElementById('editSubjectName').value;
+        const duration = parseInt(document.getElementById('editSubjectDuration').value);
+        
+        if (!name || !duration) {
+            alert('Vui lòng nhập đầy đủ thông tin');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/v1/subjects/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                },
+                body: JSON.stringify({
+                    name: name,
+                    duration: duration
+                })
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || 'Lỗi khi cập nhật môn học');
+            }
+            
+            // Cập nhật thành công, reload trang
+            window.location.reload();
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+    
+    // Xử lý xóa môn học
+    const deleteBtns = document.querySelectorAll('.delete-subject-btn');
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.id;
+            const name = this.dataset.name;
+            
+            if (!confirm(`Bạn có chắc chắn muốn xóa môn học "${name}"? Hành động này không thể hoàn tác.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/subjects/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + getCookie('access_token').replace('Bearer ', '')
+                    }
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Lỗi khi xóa môn học');
+                }
+                
+                // Xóa thành công, reload trang
+                window.location.reload();
+            } catch (error) {
+                alert('Lỗi: ' + error.message);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
