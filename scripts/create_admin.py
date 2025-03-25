@@ -1,15 +1,26 @@
+#!/usr/bin/env python3
+"""
+Script to create an admin user in the database.
+This should be run from the scripts directory with the virtual environment activated.
+"""
+import sys
+import os
+from pathlib import Path
 import asyncio
 import argparse
-from bson.objectid import ObjectId
 from datetime import datetime
-from motor.motor_asyncio import AsyncIOMotorClient
 from getpass import getpass
 import re
-import os
 from dotenv import load_dotenv
 
+# Add the project root directory to the Python path
+project_root = str(Path(__file__).parent.parent)
+sys.path.append(project_root)
+
+# Now we can import from the app package
 from app.core.security import get_password_hash
-from app.models.user import UserRole
+from app.models.domain.user import UserRole
+from bson.objectid import ObjectId
 
 # Load environment variables
 load_dotenv()
@@ -18,6 +29,9 @@ load_dotenv()
 email_regex = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
 async def create_admin_user(email, full_name, password, mongodb_url, db_name):
+    # Import here to ensure path is set first
+    from motor.motor_asyncio import AsyncIOMotorClient
+    
     # Connect to MongoDB
     client = AsyncIOMotorClient(mongodb_url)
     db = client[db_name]
@@ -33,13 +47,17 @@ async def create_admin_user(email, full_name, password, mongodb_url, db_name):
         print(f"A user with email {email} already exists.")
         return False
     
+    # Create user ID
+    user_id = str(ObjectId())
+    
     # Create new admin user
     user_data = {
-        "_id": str(ObjectId()),
+        "_id": user_id,
+        "id": user_id,  # Add id field for consistency
         "email": email,
         "full_name": full_name,
         "hashed_password": get_password_hash(password),
-        "role": "admin",  # Phải là chuỗi "admin", không phải enum
+        "role": "admin",  # Use string value from enum
         "is_active": True,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
