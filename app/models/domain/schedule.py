@@ -21,8 +21,25 @@ class ScheduleConfigBase(BaseModel):
             time: lambda t: t.strftime('%H:%M:%S')
         }
         
-class ScheduleConfigCreate(ScheduleConfigBase):
-    pass
+class ScheduleConfigCreate(BaseModel):
+    exam_period_name: str
+    start_date: datetime
+    end_date: datetime
+    first_exam_time: time
+    last_exam_time: time
+    supervisors_per_room: int = Field(ge=1)  # >= 1
+    
+    @validator('end_date')
+    def end_date_must_be_after_start_date(cls, v, values):
+        if 'start_date' in values and v < values['start_date']:
+            raise ValueError('end_date must be after start_date')
+        return v
+        
+    @validator('last_exam_time')
+    def last_time_must_be_after_first_time(cls, v, values):
+        if 'first_exam_time' in values and v <= values['first_exam_time']:
+            raise ValueError('last_exam_time must be after first_exam_time')
+        return v
     
 class ScheduleConfigInDB(ScheduleConfigBase):
     id: str = Field(default_factory=str)

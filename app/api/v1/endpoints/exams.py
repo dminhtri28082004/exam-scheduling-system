@@ -330,22 +330,36 @@ async def get_exam(
     """
     Lấy thông tin chi tiết của một kỳ thi
     """
-    # First try to find the exam using the string ID directly
+    # Try multiple ways to find the exam
+    exam = None
+    
+    # Try 1: Direct string ID lookup
     exam = await db.exams.find_one({"_id": exam_id})
     
-    # If not found, try to convert to ObjectId and search again
+    # Try 2: Look for 'id' field instead
     if not exam:
+        exam = await db.exams.find_one({"id": exam_id})
+    
+    # Try 3: Convert to ObjectId if possible and try again
+    if not exam and len(exam_id) == 24:
         try:
             obj_id = ObjectId(exam_id)
             exam = await db.exams.find_one({"_id": obj_id})
-        except:
-            # If conversion fails or exam still not found, raise 404
-            raise HTTPException(status_code=404, detail="Exam not found")
+        except Exception as e:
+            print(f"Error converting to ObjectId: {str(e)}")
     
     if not exam:
+        # Enhanced error details for debugging
+        print(f"Exam with ID {exam_id} not found. Tried direct lookup and ObjectId conversion.")
+        
+        # Add debug information
+        sample_exam = await db.exams.find_one()
+        if sample_exam:
+            print(f"Sample exam ID format in DB: {type(sample_exam.get('_id')).__name__}")
+            
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Exam not found"
+            detail=f"Exam with ID {exam_id} not found"
         )
     
     # Get the actual ID from the found exam document
@@ -355,10 +369,49 @@ async def get_exam(
     exam = prepare_mongodb_doc(exam)
     
     # Lấy thông tin chi tiết
-    subject = await db.subjects.find_one({"_id": exam["subject_id"]})
-    room = await db.rooms.find_one({"_id": exam["room_id"]})
+    subject = None
+    subject_id = exam.get("subject_id")
+    if subject_id:
+        # Try direct lookup first
+        subject = await db.subjects.find_one({"_id": subject_id})
+        
+        # If not found and subject_id is a string, try ObjectId conversion
+        if not subject and isinstance(subject_id, str) and len(subject_id) == 24:
+            try:
+                obj_id = ObjectId(subject_id)
+                subject = await db.subjects.find_one({"_id": obj_id})
+            except:
+                print(f"Failed to convert subject_id {subject_id} to ObjectId")
+        
+        # If still not found, try looking up by id field
+        if not subject:
+            subject = await db.subjects.find_one({"id": subject_id})
+    
+    room = None
+    room_id = exam.get("room_id")
+    if room_id:
+        # Try direct lookup first
+        room = await db.rooms.find_one({"_id": room_id})
+        
+        # If not found and room_id is a string, try ObjectId conversion
+        if not room and isinstance(room_id, str) and len(room_id) == 24:
+            try:
+                obj_id = ObjectId(room_id)
+                room = await db.rooms.find_one({"_id": obj_id})
+            except:
+                print(f"Failed to convert room_id {room_id} to ObjectId")
+        
+        # If still not found, try looking up by id field
+        if not room:
+            room = await db.rooms.find_one({"id": room_id})
     
     if not subject or not room:
+        print(f"Related subject or room not found. Subject ID: {subject_id}, Room ID: {room_id}")
+        if subject_id and not subject:
+            print(f"Subject lookup failed. Type: {type(subject_id).__name__}")
+        if room_id and not room:
+            print(f"Room lookup failed. Type: {type(room_id).__name__}")
+            
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Related subject or room not found"
@@ -426,6 +479,32 @@ async def get_exam(
                     "name": student.get("full_name", "Chưa xác định")
                 })
     
+    # Tìm các phòng thi song song (cùng môn, cùng thời gian)
+    parallel_exams = []
+    if "parallel_exam_group" in exam and exam["parallel_exam_group"]:
+        # Tìm tất cả các kỳ thi cùng nhóm song song
+        parallel_group = exam["parallel_exam_group"]
+        parallel_exams_cursor = db.exams.find({
+            "parallel_exam_group": parallel_group,
+            "_id": {"$ne": actual_id}  # Không lấy exam hiện tại
+        })
+        
+        # Lấy thông tin chi tiết về các phòng thi song song
+        async for parallel_exam in parallel_exams_cursor:
+            p_exam = prepare_mongodb_doc(parallel_exam)
+            
+            # Lấy thông tin phòng
+            p_room = await db.rooms.find_one({"_id": p_exam["room_id"]})
+            if p_room:
+                p_room = prepare_mongodb_doc(p_room)
+                parallel_exams.append({
+                    "id": p_exam["id"],
+                    "room_id": p_room.get("room_id", "Unknown"),
+                    "room_name": p_room.get("name", p_room.get("room_id", "Unknown")),
+                    "student_count": len(p_exam.get("student_ids", [])),
+                    "capacity": p_room.get("capacity", 0)
+                })
+    
     # Trả về thông tin chi tiết
     return {
         "id": exam["_id"],
@@ -446,7 +525,8 @@ async def get_exam(
         "students": students,
         "max_students": exam.get("max_students", 0),
         "created_at": exam.get("created_at", None),
-        "updated_at": exam.get("updated_at", None)
+        "updated_at": exam.get("updated_at", None),
+        "parallel_rooms": parallel_exams  # Thêm thông tin về các phòng thi song song
     }
 
 @router.delete("/{exam_id}", status_code=status.HTTP_204_NO_CONTENT)

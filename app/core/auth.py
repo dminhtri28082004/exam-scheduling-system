@@ -4,6 +4,7 @@ from jose import jwt, JWTError
 from pydantic import ValidationError
 from typing import Optional
 import logging
+from bson.objectid import ObjectId
 
 from app.db.database import get_database
 from app.models.domain.user import TokenPayload, User, UserRole
@@ -18,7 +19,7 @@ async def get_token(
     access_token: Optional[str] = Cookie(None)
 ) -> str:
     # Nếu có cookie, sử dụng cookie
-    if access_token and access_token.startswith("Bearer "):
+    if (access_token and access_token.startswith("Bearer ")):
         return access_token.replace("Bearer ", "")
     
     # Nếu không, thử lấy từ Authorization header
@@ -43,18 +44,52 @@ async def get_current_user(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         token_data = TokenPayload(**payload)
-    except (JWTError, ValidationError):
+        user_id = token_data.sub
+        logging.info(f"Extracted user ID from token: {user_id}")
+    except (JWTError, ValidationError) as e:
+        logging.error(f"Token validation error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Không thể xác thực thông tin đăng nhập",
         )
     
-    user = await db.users.find_one({"_id": token_data.sub})
+    # Try multiple ways to find the user
+    user = None
+    
+    # Try 1: Direct lookup with string ID
+    user = await db.users.find_one({"_id": user_id})
+    
+    # Try 2: Look for 'id' field instead of '_id'
     if not user:
+        user = await db.users.find_one({"id": user_id})
+    
+    # Try 3: Convert to ObjectId if possible and try again
+    if not user and len(user_id) == 24:
+        try:
+            obj_id = ObjectId(user_id)
+            user = await db.users.find_one({"_id": obj_id})
+        except Exception as e:
+            logging.error(f"Failed to convert ID to ObjectId: {str(e)}")
+    
+    if not user:
+        # Log actual database content for debugging
+        try:
+            total_users = await db.users.count_documents({})
+            logging.error(f"User not found. ID: {user_id}, Total users in DB: {total_users}")
+            
+            # If there are users, log a sample for debugging
+            if total_users > 0:
+                sample_user = await db.users.find_one({})
+                logging.error(f"Sample user structure: {sample_user}")
+        except Exception as e:
+            logging.error(f"Error while checking database: {str(e)}")
+            
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
     
-    # Ánh xạ _id sang id để phù hợp với Pydantic model
-    user["id"] = user["_id"]
+    # Ensure id field exists for Pydantic model
+    if "id" not in user:
+        user["id"] = str(user["_id"])
+    
     return User(**user)
 
 # Hàm để lấy thông tin người dùng hiện tại

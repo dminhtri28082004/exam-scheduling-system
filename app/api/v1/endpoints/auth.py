@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Any, Dict
+from bson import ObjectId
 
 from app.core.security import verify_password, create_access_token
 from app.db.database import get_database
@@ -29,9 +30,16 @@ async def login_access_token(
             detail="Email hoặc mật khẩu không đúng"
         )
     
+    # Use id field if it exists, otherwise use _id
+    user_id = user.get("id", user.get("_id"))
+    
+    # Ensure user_id is a string
+    if isinstance(user_id, ObjectId):
+        user_id = str(user_id)
+    
     # Tạo mã thông báo truy cập
     return {
-        "access_token": create_access_token(user["_id"], user["role"]),
+        "access_token": create_access_token(user_id, user["role"]),
         "token_type": "bearer",
     }
 

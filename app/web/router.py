@@ -2,16 +2,17 @@ from fastapi import APIRouter, Request, Depends, HTTPException, status, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import OAuth2PasswordRequestForm
-from typing import Optional
+from typing import Optional, Any  # Add Any to the imports
 import os
 from pathlib import Path
 from bson.objectid import ObjectId
-from datetime import datetime  # Thêm import này
+from datetime import datetime
 
 from app.db.database import get_database
 from app.core.security import verify_password, create_access_token
 from app.models.domain.user import User
 from app.core.auth import get_current_active_user, check_admin_permission
+from app.utils.mongo import prepare_mongodb_docs, prepare_mongodb_doc  # Add missing import
 
 # Tạo router
 web_router = APIRouter(include_in_schema=False)
@@ -546,44 +547,75 @@ async def admin_exams_page(
     request: Request,
     current_user: User = Depends(check_admin_permission),
     db = Depends(get_database)
-):
-    # Lấy tất cả kỳ thi đã được lên lịch
+) -> Any:
+    """Retrieve and display all exams for admin"""
+    # Get all scheduled exams
     exams_cursor = db.exams.find().sort("start_time", 1)
-    exams = await exams_cursor.to_list(length=1000)  # Lấy tối đa 1000 kỳ thi
+    exams = await prepare_mongodb_docs(exams_cursor)
     
-    # Lấy thông tin chi tiết về môn học và phòng thi
+    # Get detailed information about each exam
     exam_details = []
     for exam in exams:
-        subject = await db.subjects.find_one({"_id": exam.get("subject_id")})
-        room = await db.rooms.find_one({"_id": exam.get("room_id")})
-        
-        if subject and room:
-            # Lấy thông tin giám thị
+        try:
+            # Get subject and room info
+            subject_id = exam.get("subject_id")
+            room_id = exam.get("room_id")
+            
+            # Handle both string IDs and ObjectId strings
+            subject = await db.subjects.find_one({"_id": subject_id})
+            if not subject and isinstance(subject_id, str):
+                try:
+                    # Try with ObjectId
+                    obj_id = ObjectId(subject_id)
+                    subject = await db.subjects.find_one({"_id": obj_id})
+                except:
+                    pass
+            
+            # Similarly for room
+            room = await db.rooms.find_one({"_id": room_id})
+            if not room and isinstance(room_id, str):
+                try:
+                    # Try with ObjectId
+                    obj_id = ObjectId(room_id)
+                    room = await db.rooms.find_one({"_id": obj_id})
+                except:
+                    pass
+            
+            if not subject or not room:
+                # Skip exams with missing subject or room
+                continue
+            
+            # Process subject and room data
+            subject = prepare_mongodb_doc(subject)
+            room = prepare_mongodb_doc(room)
+            
+            # Get supervisors info
             supervisors = []
             for supervisor_id in exam.get("supervisor_ids", []):
-                if isinstance(supervisor_id, ObjectId):
-                    supervisor_id = str(supervisor_id)
-                    
+                # Handle demo supervisors
                 if isinstance(supervisor_id, str) and supervisor_id.startswith("DEMO_SUPERVISOR"):
                     supervisors.append({"full_name": f"Giám thị {supervisor_id.split('_')[-1]}"})
+                    continue
+                
+                # Try to find teacher
+                teacher = await db.teachers.find_one({"_id": supervisor_id})
+                if not teacher and isinstance(supervisor_id, str):
+                    try:
+                        obj_id = ObjectId(supervisor_id)
+                        teacher = await db.teachers.find_one({"_id": obj_id})
+                    except:
+                        pass
+                
+                if teacher:
+                    teacher = prepare_mongodb_doc(teacher)
+                    supervisors.append({"full_name": teacher.get("full_name", "Chưa xác định")})
                 else:
-                    # Try to find by _id first
-                    teacher = await db.teachers.find_one({"_id": supervisor_id})
-                    if not teacher:
-                        # Try to find by string representation of ObjectId
-                        teacher = await db.teachers.find_one({"_id": ObjectId(supervisor_id)})
-                    
-                    if teacher:
-                        supervisors.append({"full_name": teacher.get("full_name", "Chưa xác định")})
-                    else:
-                        # Fallback to displaying supervisor ID if teacher not found
-                        supervisors.append({"full_name": f"Giám thị ID: {supervisor_id}"})
+                    # Fallback
+                    supervisors.append({"full_name": f"Giám thị (ID: {supervisor_id})"})
             
-            # Chuyển đổi ID sang string
-            exam_id = str(exam.get("_id"))
-            
+            # Add to exam details
             exam_details.append({
-                "id": exam_id,
+                "id": exam.get("id"),
                 "subject_name": subject.get("name", "Unknown"),
                 "subject_code": subject.get("code", "Unknown"),
                 "room_id": room.get("room_id", "Unknown"),
@@ -595,19 +627,21 @@ async def admin_exams_page(
                 "student_count": len(exam.get("student_ids", [])),
                 "max_students": exam.get("max_students", 0)
             })
+        except Exception as e:
+            # Log error and continue
+            print(f"Error processing exam {exam.get('id')}: {str(e)}")
     
-    # Tính toán thống kê
+    # Get stats
     total_exams = len(exam_details)
-    total_student_slots = sum(exam["student_count"] for exam in exam_details)
-    upcoming_exams = sum(1 for exam in exam_details if exam["start_time"] > datetime.utcnow())
+    total_student_slots = sum(exam.get("student_count", 0) for exam in exam_details)
+    upcoming_exams = sum(1 for exam in exam_details if exam.get("start_time") > datetime.utcnow())
     
-    # Tìm danh sách tất cả các môn học
+    # Get subjects and rooms for filtering
     subjects_cursor = db.subjects.find()
-    subjects = await subjects_cursor.to_list(length=100)
+    subjects = await prepare_mongodb_docs(subjects_cursor)
     
-    # Tìm danh sách tất cả các phòng
     rooms_cursor = db.rooms.find()
-    rooms = await rooms_cursor.to_list(length=100)
+    rooms = await prepare_mongodb_docs(rooms_cursor)
     
     return templates.TemplateResponse(
         "admin/exams.html", 
@@ -620,7 +654,7 @@ async def admin_exams_page(
             "upcoming_exams": upcoming_exams,
             "subjects": subjects,
             "rooms": rooms,
-            "now": datetime.utcnow()  # Thêm dòng này để cung cấp thời gian hiện tại cho template
+            "now": datetime.utcnow()
         }
     )
 
@@ -650,6 +684,31 @@ async def admin_supervisors_page(
             "user": current_user,
             "teachers": teachers
         }
+    )
+
+# Route quản lý nhập dữ liệu cho admin
+@web_router.get("/ui/admin/import", response_class=HTMLResponse)
+async def admin_import_page(
+    request: Request,
+    current_user: User = Depends(check_admin_permission),
+    db = Depends(get_database)
+):
+    return templates.TemplateResponse(
+        "admin/import.html", 
+        {"request": request, "user": current_user}
+    )
+
+# Route for database browser (admin only)
+@web_router.get("/ui/admin/database", response_class=HTMLResponse)
+async def admin_database_page(
+    request: Request,
+    current_user: User = Depends(check_admin_permission),
+    db = Depends(get_database)
+):
+    """Database browser interface for admins"""
+    return templates.TemplateResponse(
+        "admin/database.html", 
+        {"request": request, "user": current_user}
     )
 
 # Route đăng xuất

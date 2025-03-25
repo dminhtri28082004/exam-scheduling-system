@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import users, auth, exams, subjects, rooms, import_data, scheduler, dashboard, classes, teachers
+from app.api.v1.endpoints import users, auth, exams, subjects, rooms, import_data, scheduler, dashboard, classes, teachers, database  # Add database
 
 api_router = APIRouter()
 
@@ -13,3 +13,4 @@ api_router.include_router(import_data.router, prefix="/import", tags=["data-impo
 api_router.include_router(scheduler.router, prefix="/scheduler", tags=["exam-scheduler"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(teachers.router, prefix="/teachers", tags=["teachers"])
+api_router.include_router(database.router, prefix="/database", tags=["database-browser"])  # Add database router

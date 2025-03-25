@@ -1,0 +1,418 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Duyệt dữ liệu - Hệ thống lập lịch thi{% endblock %}
+
+{% block additional_css %}
+<style>
+    pre.json {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        overflow: auto;
+        max-height: 500px;
+    }
+    .collection-tab {
+        cursor: pointer;
+    }
+    .pagination {
+        justify-content: center;
+    }
+    .filter-form {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Duyệt dữ liệu</h1>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Collections</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="collections-list">
+                        <div class="text-center p-3">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Đang tải...</span>
+                            </div>
+                            <span class="ms-2">Đang tải collections...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" id="current-collection">Chọn một collection</h5>
+                    <div>
+                        <span class="badge bg-primary" id="document-count">0 documents</span>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div id="filter-container" class="mb-3 d-none">
+                        <form id="filter-form" class="row g-3">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" id="filter-field" placeholder="Field name">
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" id="filter-value" placeholder="Field value">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">Lọc</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div id="data-container">
+                        <div class="text-center p-5">
+                            <p class="text-muted">Chọn một collection để xem dữ liệu</p>
+                        </div>
+                    </div>
+                    
+                    <div id="pagination-container" class="mt-3 d-none">
+                        <nav>
+                            <ul class="pagination">
+                                <li class="page-item disabled" id="pagination-prev">
+                                    <a class="page-link" href="#" tabindex="-1">Trước</a>
+                                </li>
+                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                <li class="page-item" id="pagination-next">
+                                    <a class="page-link" href="#">Sau</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="documentModal" tabindex="-1" aria-labelledby="documentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="documentModalLabel">Chi tiết document</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <pre class="json" id="document-json"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // State variables
+    let currentCollection = null;
+    let currentPage = 0;
+    let pageSize = 25;
+    let totalDocuments = 0;
+    let currentFilter = { field: null, value: null };
+    
+    // DOM elements
+    const collectionsList = document.getElementById('collections-list');
+    const currentCollectionTitle = document.getElementById('current-collection');
+    const documentCountBadge = document.getElementById('document-count');
+    const dataContainer = document.getElementById('data-container');
+    const paginationContainer = document.getElementById('pagination-container');
+    const paginationPrev = document.getElementById('pagination-prev');
+    const paginationNext = document.getElementById('pagination-next');
+    const filterContainer = document.getElementById('filter-container');
+    const filterForm = document.getElementById('filter-form');
+    const filterField = document.getElementById('filter-field');
+    const filterValue = document.getElementById('filter-value');
+    
+    // Load collections on page load
+    loadCollections();
+    
+    // Event listeners
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        currentFilter = {
+            field: filterField.value.trim(),
+            value: filterValue.value.trim()
+        };
+        currentPage = 0;
+        loadCollectionData(currentCollection);
+    });
+    
+    // Functions
+    function loadCollections() {
+        fetch('/api/v1/database/collections', {
+            headers: {
+                'Authorization': getAuthToken()
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch collections');
+            return response.json();
+        })
+        .then(collections => {
+            collectionsList.innerHTML = '';
+            collections.forEach(collection => {
+                const item = document.createElement('a');
+                item.href = '#';
+                item.className = 'list-group-item list-group-item-action collection-tab';
+                item.textContent = collection;
+                item.dataset.collection = collection;
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Update active state
+                    document.querySelectorAll('.collection-tab').forEach(el => {
+                        el.classList.remove('active');
+                    });
+                    item.classList.add('active');
+                    
+                    // Reset state
+                    currentCollection = collection;
+                    currentPage = 0;
+                    currentFilter = { field: null, value: null };
+                    filterField.value = '';
+                    filterValue.value = '';
+                    
+                    // Update UI
+                    currentCollectionTitle.textContent = collection;
+                    filterContainer.classList.remove('d-none');
+                    
+                    // Load data
+                    loadCollectionData(collection);
+                });
+                collectionsList.appendChild(item);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading collections:', error);
+            collectionsList.innerHTML = `
+                <div class="list-group-item text-danger">
+                    Error loading collections
+                </div>
+            `;
+        });
+    }
+    
+    function loadCollectionData(collection, page = 0) {
+        dataContainer.innerHTML = `
+            <div class="text-center p-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Đang tải dữ liệu...</p>
+            </div>
+        `;
+        
+        let url = `/api/v1/database/collections/${collection}?skip=${page * pageSize}&limit=${pageSize}&hide_id=true`;
+        
+        // Add filter parameters if present
+        if (currentFilter.field && currentFilter.value) {
+            url += `&filter_by=${encodeURIComponent(currentFilter.field)}&filter_value=${encodeURIComponent(currentFilter.value)}`;
+        }
+        
+        fetch(url, {
+            headers: {
+                'Authorization': getAuthToken()
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch data');
+            return response.json();
+        })
+        .then(data => {
+            // If data contains metadata (total count), extract it
+            if (data.meta) {
+                totalDocuments = data.meta.total;
+                data = data.data;
+            } else {
+                totalDocuments = data.length;
+            }
+            
+            documentCountBadge.textContent = `${totalDocuments} documents`;
+            
+            if (data.length === 0) {
+                dataContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        No documents found in this collection.
+                    </div>
+                `;
+                paginationContainer.classList.add('d-none');
+                return;
+            }
+            
+            // Create table
+            const table = document.createElement('table');
+            table.className = 'table table-striped table-hover';
+            
+            // Get field names from first document
+            const fields = Object.keys(data[0])
+                // Exclude _id field
+                .filter(field => field !== '_id')
+                .slice(0, 5); // Limit to first 5 fields
+            
+            // Create header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            fields.forEach(field => {
+                const th = document.createElement('th');
+                th.textContent = field;
+                headerRow.appendChild(th);
+            });
+            const actionTh = document.createElement('th');
+            actionTh.textContent = 'Actions';
+            headerRow.appendChild(actionTh);
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Create body
+            const tbody = document.createElement('tbody');
+            data.forEach(doc => {
+                const row = document.createElement('tr');
+                
+                // Add field values
+                fields.forEach(field => {
+                    const td = document.createElement('td');
+                    const value = doc[field];
+                    
+                    // Format value based on type
+                    if (value === null || value === undefined) {
+                        td.textContent = 'null';
+                        td.className = 'text-muted';
+                    } else if (typeof value === 'object') {
+                        if (Array.isArray(value)) {
+                            td.textContent = `Array(${value.length})`;
+                        } else {
+                            td.textContent = 'Object';
+                        }
+                    } else {
+                        td.textContent = String(value).substring(0, 50);
+                        if (String(value).length > 50) {
+                            td.textContent += '...';
+                        }
+                    }
+                    
+                    row.appendChild(td);
+                });
+                
+                // Add view button
+                const actionTd = document.createElement('td');
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'btn btn-sm btn-primary';
+                viewBtn.textContent = 'Xem';
+                viewBtn.addEventListener('click', function() {
+                    // Show document in modal
+                    const modal = new bootstrap.Modal(document.getElementById('documentModal'));
+                    document.getElementById('documentModalLabel').textContent = 
+                        `Document: ${doc._id || doc.id || 'No ID'}`;
+                    document.getElementById('document-json').textContent = 
+                        JSON.stringify(doc, null, 2);
+                    modal.show();
+                });
+                actionTd.appendChild(viewBtn);
+                row.appendChild(actionTd);
+                
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            
+            // Add table to container
+            dataContainer.innerHTML = '';
+            dataContainer.appendChild(table);
+            
+            // Update pagination
+            updatePagination();
+        })
+        .catch(error => {
+            console.error('Error loading data:', error);
+            dataContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading data: ${error.message}
+                </div>
+            `;
+        });
+    }
+    
+    function updatePagination() {
+        const totalPages = Math.ceil(totalDocuments / pageSize);
+        
+        if (totalPages <= 1) {
+            paginationContainer.classList.add('d-none');
+            return;
+        }
+        
+        paginationContainer.classList.remove('d-none');
+        
+        // Update prev button state
+        if (currentPage === 0) {
+            paginationPrev.classList.add('disabled');
+        } else {
+            paginationPrev.classList.remove('disabled');
+        }
+        
+        // Update page indicators
+        const paginationItems = `
+            <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
+                <a class="page-link" href="#" id="pagination-first">Đầu</a>
+            </li>
+            <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
+                <a class="page-link" href="#" id="pagination-prev">Trước</a>
+            </li>
+            <li class="page-item active">
+                <a class="page-link" href="#">${currentPage + 1} / ${totalPages}</a>
+            </li>
+            <li class="page-item ${currentPage === totalPages - 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" id="pagination-next">Sau</a>
+            </li>
+            <li class="page-item ${currentPage === totalPages - 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" id="pagination-last">Cuối</a>
+            </li>
+        `;
+        
+        document.querySelector('.pagination').innerHTML = paginationItems;
+        
+        // Add pagination event listeners
+        document.getElementById('pagination-first').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage !== 0) {
+                currentPage = 0;
+                loadCollectionData(currentCollection, currentPage);
+            }
+        });
+        
+        document.getElementById('pagination-prev').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage > 0) {
+                currentPage--;
+                loadCollectionData(currentCollection, currentPage);
+            }
+        });
+        
+        document.getElementById('pagination-next').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage < totalPages - 1) {
+                currentPage++;
+                loadCollectionData(currentCollection, currentPage);
+            }
+        });
+        
+        document.getElementById('pagination-last').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage !== totalPages - 1) {
+                currentPage = totalPages - 1;
+                loadCollectionData(currentCollection, currentPage);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

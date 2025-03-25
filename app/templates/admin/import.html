@@ -1,0 +1,158 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Nhập dữ liệu - Hệ thống lập lịch thi{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1>Nhập dữ liệu từ Excel</h1>
+            <p class="lead">Tải lên file Excel có cấu trúc phù hợp để nhập dữ liệu vào hệ thống.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Tải xuống mẫu Excel</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Tải xuống mẫu Excel để điền dữ liệu. Mẫu này bao gồm các sheet cho Sinh viên, Môn học, Giảng viên, Phòng thi và Lớp học.</p>
+                    <a href="/api/v1/import/template" class="btn btn-success">
+                        <i class="fas fa-download me-2"></i> Tải xuống mẫu Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Tải lên file dữ liệu</h5>
+                </div>
+                <div class="card-body">
+                    <form id="importForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="excelFile" class="form-label">Chọn file Excel</label>
+                            <input class="form-control" type="file" id="excelFile" name="file" accept=".xlsx,.xls" required>
+                            <div class="form-text">Chỉ chấp nhận file Excel (.xlsx, .xls)</div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="clearExisting" name="clear_existing">
+                            <label class="form-check-label" for="clearExisting">Xóa dữ liệu hiện có trước khi nhập</label>
+                            <div class="form-text text-danger">Cảnh báo: Việc này sẽ xóa tất cả dữ liệu hiện có trong các bảng tương ứng!</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload me-2"></i> Tải lên và Nhập dữ liệu
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Kết quả nhập dữ liệu</h5>
+                </div>
+                <div class="card-body">
+                    <div id="importResults" class="d-none">
+                        <div class="alert alert-success">
+                            <h5>Nhập dữ liệu thành công!</h5>
+                            <p>Số bản ghi được nhập:</p>
+                            <ul>
+                                <li>Sinh viên: <span id="studentsCount">0</span></li>
+                                <li>Môn học: <span id="subjectsCount">0</span></li>
+                                <li>Giảng viên: <span id="teachersCount">0</span></li>
+                                <li>Phòng thi: <span id="roomsCount">0</span></li>
+                                <li>Lớp học: <span id="classesCount">0</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div id="importError" class="d-none">
+                        <div class="alert alert-danger">
+                            <h5>Lỗi khi nhập dữ liệu!</h5>
+                            <p id="errorMessage"></p>
+                        </div>
+                    </div>
+                    <div id="importLoading" class="d-none">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Đang xử lý...</span>
+                            </div>
+                        </div>
+                        <p class="text-center mt-2">Đang xử lý dữ liệu, vui lòng đợi...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const importForm = document.getElementById('importForm');
+    const importResults = document.getElementById('importResults');
+    const importError = document.getElementById('importError');
+    const importLoading = document.getElementById('importLoading');
+    const clearExistingCheckbox = document.getElementById('clearExisting');
+    
+    // Show warning when clear existing is checked
+    clearExistingCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            if (!confirm('Cảnh báo: Tùy chọn này sẽ xóa toàn bộ dữ liệu hiện có trước khi nhập dữ liệu mới.\n\nBạn có chắc chắn muốn tiếp tục?')) {
+                this.checked = false;
+            }
+        }
+    });
+    
+    importForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous results and show loading
+        importResults.classList.add('d-none');
+        importError.classList.add('d-none');
+        importLoading.classList.remove('d-none');
+        
+        const formData = new FormData(importForm);
+        
+        try {
+            const response = await fetch('/api/v1/import/excel', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': getAuthToken()
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Update the results
+                document.getElementById('studentsCount').textContent = data.imported_data.students;
+                document.getElementById('subjectsCount').textContent = data.imported_data.subjects;
+                document.getElementById('teachersCount').textContent = data.imported_data.teachers;
+                document.getElementById('roomsCount').textContent = data.imported_data.rooms;
+                document.getElementById('classesCount').textContent = data.imported_data.classes;
+                
+                // Show results
+                importResults.classList.remove('d-none');
+            } else {
+                // Show error
+                document.getElementById('errorMessage').textContent = data.detail || 'Đã xảy ra lỗi khi nhập dữ liệu.';
+                importError.classList.remove('d-none');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('errorMessage').textContent = 'Đã xảy ra lỗi khi gửi yêu cầu.';
+            importError.classList.remove('d-none');
+        } finally {
+            importLoading.classList.add('d-none');
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -24,13 +24,21 @@ async def create_user(
             detail="A user with this email already exists",
         )
     
+    # Generate a new ObjectId as string
+    user_id = str(ObjectId())
+    
+    # Create user data with consistent ID field
     user_data = UserInDB(
         **user_in.dict(exclude={"password"}),
-        id=str(ObjectId()),
+        id=user_id,
         hashed_password=get_password_hash(user_in.password)
     )
     
-    await db.users.insert_one(user_data.dict(by_alias=True))
+    # Ensure _id is set to the same value as id for consistency
+    user_dict = user_data.dict(by_alias=True)
+    user_dict["_id"] = user_id
+    
+    await db.users.insert_one(user_dict)
     return user_data
 
 @router.get("/", response_model=List[User])
