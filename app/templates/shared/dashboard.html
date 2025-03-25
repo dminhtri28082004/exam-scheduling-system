@@ -1,78 +1,95 @@
-{% extends "base.html" %}
+{% extends "shared/base.html" %}
 
 {% block title %}Dashboard - Hệ thống lập lịch thi{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h2>Bảng điều khiển</h2>
-        <hr>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header">
-                Thông tin người dùng
-            </div>
-            <div class="card-body">
-                <h5 class="card-title">{{ user.full_name }}</h5>
-                <p class="card-text">Email: {{ user.email }}</p>
-                <p class="card-text">Vai trò: 
-                    {% if user.role == 'admin' %}
-                        Quản trị viên
-                    {% elif user.role == 'teacher' %}
-                        Giáo viên
-                    {% elif user.role == 'student' %}
-                        Sinh viên
-                    {% endif %}
-                </p>
-            </div>
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-4">Dashboard</h1>
+            <p class="lead">Chào mừng, {{ user.full_name }}!</p>
         </div>
     </div>
-    
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                Chức năng
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% if user.role == 'admin' %}
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/admin/scheduler" class="btn btn-primary w-100 py-3">Lập lịch thi</a>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/admin/exams" class="btn btn-success w-100 py-3">Quản lý lịch thi</a>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/admin/users" class="btn btn-secondary w-100 py-3">Quản lý người dùng</a>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/admin/subjects" class="btn btn-info w-100 py-3">Quản lý môn học</a>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/admin/rooms" class="btn btn-warning w-100 py-3">Quản lý phòng thi</a>
-                        </div>
-                    {% elif user.role == 'student' %}
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/exams" class="btn btn-primary w-100 py-3">Xem lịch thi</a>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/profile" class="btn btn-secondary w-100 py-3">Thông tin cá nhân</a>
-                        </div>
-                    {% elif user.role == 'teacher' %}
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/supervisions" class="btn btn-primary w-100 py-3">Lịch coi thi</a>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <a href="/ui/profile" class="btn btn-secondary w-100 py-3">Thông tin cá nhân</a>
-                        </div>
-                    {% endif %}
+
+    <div class="row">
+        {% if user.role == 'admin' %}
+        <!-- Admin Dashboard -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quản lý Lịch Thi</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Tạo và quản lý lịch thi tự động.</p>
+                    <a href="/ui/admin/scheduler" class="btn btn-primary">Quản lý</a>
                 </div>
             </div>
         </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Phòng Thi</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Quản lý các phòng thi và sức chứa.</p>
+                    <a href="/ui/admin/rooms" class="btn btn-primary">Quản lý</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Môn Học</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Quản lý danh sách môn học và thông tin kỳ thi.</p>
+                    <a href="/ui/admin/subjects" class="btn btn-primary">Quản lý</a>
+                </div>
+            </div>
+        </div>
+        
+        {% elif user.role == 'student' %}
+        <!-- Student Dashboard -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Lịch Thi Của Tôi</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Xem lịch thi và thông tin phòng thi của bạn.</p>
+                    <a href="/ui/exams" class="btn btn-primary">Xem lịch thi</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Lịch Thi Dạng Calendar</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Xem lịch thi dạng calendar để dễ theo dõi.</p>
+                    <a href="/ui/exams/calendar" class="btn btn-primary">Xem lịch</a>
+                </div>
+            </div>
+        </div>
+        
+        {% elif user.role == 'teacher' %}
+        <!-- Teacher Dashboard -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Lịch Coi Thi</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Xem lịch coi thi đã được phân công.</p>
+                    <a href="/ui/supervisions" class="btn btn-primary">Xem lịch coi thi</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

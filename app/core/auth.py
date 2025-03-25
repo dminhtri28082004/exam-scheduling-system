@@ -4,6 +4,7 @@ from jose import jwt, JWTError
 from pydantic import ValidationError
 from typing import Optional
 import logging
+from bson.objectid import ObjectId  # Add this import
 
 from app.db.database import get_database
 from app.models.domain.user import TokenPayload, User, UserRole
@@ -18,7 +19,7 @@ async def get_token(
     access_token: Optional[str] = Cookie(None)
 ) -> str:
     # Nếu có cookie, sử dụng cookie
-    if access_token and access_token.startswith("Bearer "):
+    if (access_token and access_token.startswith("Bearer ")):
         return access_token.replace("Bearer ", "")
     
     # Nếu không, thử lấy từ Authorization header
@@ -49,12 +50,30 @@ async def get_current_user(
             detail="Không thể xác thực thông tin đăng nhập",
         )
     
+    # Try to find user by _id as string first
     user = await db.users.find_one({"_id": token_data.sub})
+    
+    # If not found, try to find using ObjectId
     if not user:
+        try:
+            # Try to convert string to ObjectId and search again
+            obj_id = ObjectId(token_data.sub)
+            user = await db.users.find_one({"_id": obj_id})
+        except:
+            # If conversion fails or user still not found
+            pass
+    
+    if not user:
+        # If still not found, log details for debugging
+        logging.error(f"User not found with ID: {token_data.sub}")
+        # Check if any users exist at all
+        total_users = await db.users.count_documents({})
+        logging.info(f"Total users in database: {total_users}")
+        
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
     
     # Ánh xạ _id sang id để phù hợp với Pydantic model
-    user["id"] = user["_id"]
+    user["id"] = str(user["_id"]) if isinstance(user["_id"], ObjectId) else user["_id"]
     return User(**user)
 
 # Hàm để lấy thông tin người dùng hiện tại
