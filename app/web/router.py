@@ -711,6 +711,94 @@ async def admin_database_page(
         {"request": request, "user": current_user}
     )
 
+# Route for teachers to view supervision schedules
+@web_router.get("/ui/supervisions", response_class=HTMLResponse)
+async def supervisions_page(
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db = Depends(get_database)
+):
+    """View exams assigned for supervision (for teachers)"""
+    # Check if user is a teacher
+    if current_user.role != "teacher":
+        return RedirectResponse(url="/ui/dashboard", status_code=status.HTTP_302_FOUND)
+    
+    # Find teacher document matching this user
+    teacher = await db.teachers.find_one({"email": current_user.email})
+    
+    if not teacher:
+        return templates.TemplateResponse(
+            "shared/error.html", 
+            {"request": request, "message": "Không tìm thấy thông tin giáo viên"}
+        )
+    
+    # Ensure teacher has id field (for consistent lookup)
+    teacher_id = str(teacher.get("_id"))
+    
+    # Find all exams where this teacher is assigned as supervisor
+    now = datetime.utcnow()
+    
+    # Get upcoming exams (start time is in the future)
+    upcoming_exams_cursor = db.exams.find({
+        "supervisor_ids": teacher_id,
+        "start_time": {"$gt": now}
+    }).sort("start_time", 1)
+    
+    upcoming_exams = await prepare_mongodb_docs(upcoming_exams_cursor)
+    
+    # Get past exams (start time is in the past)
+    past_exams_cursor = db.exams.find({
+        "supervisor_ids": teacher_id,
+        "start_time": {"$lte": now}
+    }).sort("start_time", -1)
+    
+    past_exams = await prepare_mongodb_docs(past_exams_cursor)
+    
+    # Fetch details for all exams
+    supervision_details = []
+    
+    # Process all exams
+    for exam in upcoming_exams + past_exams:
+        # Get subject and room info
+        subject = await db.subjects.find_one({"_id": exam.get("subject_id")})
+        room = await db.rooms.find_one({"_id": exam.get("room_id")})
+        
+        # Skip if subject or room not found
+        if not subject or not room:
+            continue
+            
+        subject = prepare_mongodb_doc(subject)
+        room = prepare_mongodb_doc(room)
+        
+        # Create detailed exam info
+        exam_detail = {
+            "id": exam.get("id"),
+            "subject_name": subject.get("name", "Unknown"),
+            "subject_code": subject.get("code", "Unknown"),
+            "room_id": room.get("room_id", "Unknown"),
+            "room_name": room.get("name", room.get("room_id", "Unknown")),
+            "start_time": exam.get("start_time"),
+            "end_time": exam.get("end_time"),
+            "duration": (exam.get("end_time") - exam.get("start_time")).total_seconds() // 60,
+            "student_count": len(exam.get("student_ids", [])),
+            "capacity": room.get("capacity", 0),
+            "is_upcoming": exam.get("start_time") > now
+        }
+        
+        supervision_details.append(exam_detail)
+    
+    return templates.TemplateResponse(
+        "teacher/supervisions.html", 
+        {
+            "request": request, 
+            "user": current_user,
+            "teacher": teacher,
+            "upcoming_exams": [exam for exam in supervision_details if exam["is_upcoming"]],
+            "past_exams": [exam for exam in supervision_details if not exam["is_upcoming"]],
+            "now": now
+        }
+    )
+
 # Route đăng xuất
 @web_router.get("/ui/logout")
 async def logout():
